@@ -1,37 +1,58 @@
 import { useState, useEffect } from 'react';
 import { Product, CartItem, Transaction, PaymentMethod } from './types/pos';
-import { petProducts, petCategories, categoryMapping, quickAddItems } from './data/pet-products';
+import { quickAddItems } from './data/pet-products';
+import { fetchProducts, fetchProductById } from './services/productService';
 import { PetProductGrid } from './components/PetProductGrid';
 import { PetCart } from './components/PetCart';
 import { PetCheckoutModal } from './components/PetCheckoutModal';
 import { BarcodeScanner } from './components/BarcodeScanner';
-import { MemberLogin } from './components/MemberLogin';
-import { PetTransactionHistory } from './components/PetTransactionHistory';
-import { ShoppingCart, History, Scan, Search, User, Menu } from 'lucide-react';
+import { MemberLogin, type Member } from './components/MemberLogin';
+import { supabase } from '../lib/supabase';
+import { Scan, Search, User, Menu, Camera, List } from 'lucide-react';
 import { Button } from './components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from './components/ui/dropdown-menu';
+import { Drawer, DrawerTrigger, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from './components/ui/drawer';
 import { Input } from './components/ui/input';
 import { toast } from 'sonner';
 import { Toaster } from './components/ui/sonner';
 
-interface Member {
-  id: string;
-  name: string;
-  phone: string;
-  petName?: string;
-  petBirthday?: string;
-  loyaltyPoints: number;
-}
-
 export default function App() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [discount, setDiscount] = useState(20);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isMemberLoginOpen, setIsMemberLoginOpen] = useState(false);
+  const [isMemberLoginOpen, setIsMemberLoginOpen] = useState(true); // Required login on startup
   const [currentMember, setCurrentMember] = useState<Member | null>(null);
-  const [activeView, setActiveView] = useState<'products' | 'cart' | 'history'>('products');
+
+  // Load products from Supabase
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error('Failed to load products:', error);
+        toast.error('Failed to load products from database');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
 
   // Load data from localStorage
   useEffect(() => {
@@ -66,12 +87,26 @@ export default function App() {
     }
   }, [currentMember]);
 
-  const filteredProducts = petProducts.filter(product => {
-    const categoryMatch = selectedCategory === 'all' || 
-                         product.category === categoryMapping[selectedCategory];
-    const searchMatch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       product.id.toLowerCase().includes(searchQuery.toLowerCase());
+  const categoryTabs = [
+    { id: 'all', name: 'All' },
+    { id: 'dog', name: 'Dog' },
+    { id: 'cat', name: 'Cat' },
+    { id: 'meds', name: 'Meds' },
+  ];
+
+  const filteredProducts = products.filter((product) => {
+    const query = searchQuery.toLowerCase();
+    const categoryMatch =
+      selectedCategory === 'all' ||
+      (selectedCategory === 'dog' && product.category.toLowerCase().includes('dog')) ||
+      (selectedCategory === 'cat' && product.category.toLowerCase().includes('cat')) ||
+      (selectedCategory === 'meds' && product.category.toLowerCase() === 'pharmacy');
+
+    const searchMatch =
+      product.name.toLowerCase().includes(query) ||
+      product.category.toLowerCase().includes(query) ||
+      product.id.toLowerCase().includes(query);
+
     return categoryMatch && searchMatch;
   });
 
@@ -95,18 +130,23 @@ export default function App() {
     });
   };
 
-  const handleBarcodeScan = (barcode: string) => {
-    const product = petProducts.find(p => p.id === barcode);
-    if (product) {
-      addToCart(product);
-      toast.success('Scanned successfully!', {
-        description: product.name,
-        icon: '✅',
-      });
-    } else {
-      toast.error('Product not found', {
-        description: `SKU: ${barcode}`,
-      });
+  const handleBarcodeScan = async (barcode: string) => {
+    try {
+      const product = await fetchProductById(barcode);
+      if (product) {
+        addToCart(product);
+        toast.success('Scanned successfully!', {
+          description: product.name,
+          icon: '✅',
+        });
+      } else {
+        toast.error('Product not found', {
+          description: `SKU: ${barcode}`,
+        });
+      }
+    } catch (error) {
+      console.error('Scan error:', error);
+      toast.error('Error scanning product');
     }
   };
 
@@ -139,9 +179,23 @@ export default function App() {
   const handleMemberLogin = (member: Member) => {
     setCurrentMember(member);
     setIsMemberLoginOpen(false);
-    toast.success(`Welcome back, ${member.name}! 🐾`, {
-      description: member.petName ? `Happy to see ${member.petName}'s parent!` : undefined,
+    toast.success(`Welcome, ${member.name}!`, {
+      description: `Logged in as ${member.role.charAt(0).toUpperCase() + member.role.slice(1)}`,
+      icon: '✅',
     });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Supabase sign out failed:', error);
+    }
+
+    setCurrentMember(null);
+    setCart([]);
+    setIsMemberLoginOpen(true);
+    toast.success('Logged out successfully');
   };
 
   const completeCheckout = (paymentMethod: PaymentMethod) => {
@@ -178,153 +232,228 @@ export default function App() {
 
     setCart([]);
     setIsCheckoutOpen(false);
-    setActiveView('products');
   };
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const discounted = Math.max(0, subtotal - subtotal * (discount / 100));
+  const taxAmount = Number((discounted * 0.015).toFixed(2));
+  const totalAmount = Number((discounted + taxAmount).toFixed(2));
 
   return (
-    <div className="h-screen flex flex-col bg-[#F5F1E8]">
+    <div className="h-screen flex flex-col bg-[#F4F8F3]">
       <Toaster richColors />
-      
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#7BA886] to-[#6B9BD1] text-white shadow-lg">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-                <span className="text-2xl">🐾</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">Mini Step Pet Supplies</h1>
-                <p className="text-xs text-white/80">Everything for your furry friends</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => setIsMemberLoginOpen(true)}
-              className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-            >
-              {currentMember ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-[#7BA886] font-semibold">
-                    {currentMember.name.charAt(0)}
+
+      <header className="bg-[#1E8C5A] text-white shadow-lg">
+        <div className="px-4 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Drawer direction="left">
+              <DrawerTrigger asChild>
+                <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
+                  <Menu className="w-5 h-5" />
+                </button>
+              </DrawerTrigger>
+
+              <DrawerContent className="bg-white">
+                <DrawerHeader>
+                  <DrawerTitle>Categories</DrawerTitle>
+                  <p className="text-sm text-gray-500">Select a category to filter products.</p>
+                </DrawerHeader>
+                <div className="px-4 pb-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {categoryTabs.map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => setSelectedCategory(category.id)}
+                        className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                          selectedCategory === category.id
+                            ? 'bg-[#E7F7EE] text-[#1E8C5A] border border-[#C9E8D5]'
+                            : 'bg-[#F8FAF8] text-gray-600 border border-[#E6ECE7] hover:bg-[#ECF5EE]'
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <User className="w-6 h-6" />
-              )}
-            </button>
+                <div className="px-4 pb-4">
+                  <DrawerClose asChild>
+                    <button className="w-full rounded-2xl border border-[#E8DFD0] bg-[#F5F7F3] py-3 text-sm font-semibold text-[#2C3E2E]">
+                      Close
+                    </button>
+                  </DrawerClose>
+                </div>
+              </DrawerContent>
+            </Drawer>
+            <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center">
+              <span className="text-2xl">🐾</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold">Mini Step Pet Supplies</h1>
+              <p className="text-xs text-white/80">Point of Sale</p>
+            </div>
           </div>
-          
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search products or SKU..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 bg-white h-12 rounded-xl border-0 shadow-md"
-            />
+
+          <div className="hidden md:flex items-center gap-3">
+            <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
+              <Camera className="w-5 h-5" />
+            </button>
+            <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
+              <List className="w-5 h-5" />
+            </button>
+            {currentMember ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
+                    title="User menu"
+                  >
+                    <span className="font-semibold">{currentMember.name.charAt(0)}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 p-2">
+                  <div className="px-3 py-2 rounded-lg bg-[#F5F7F3]">
+                    <p className="text-sm font-semibold text-[#1E3D2D]">{currentMember.name}</p>
+                    <p className="text-xs text-gray-500">{currentMember.role.charAt(0).toUpperCase() + currentMember.role.slice(1)}</p>
+                    {currentMember.phone && (
+                      <p className="mt-2 text-xs text-gray-500">{currentMember.phone}</p>
+                    )}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="rounded-md px-3 py-2 text-sm text-[#B91C1C] hover:bg-red-50"
+                    onSelect={handleLogout}
+                    variant="destructive"
+                  >
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
+                onClick={() => setIsMemberLoginOpen(true)}
+                className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
+                title="Login"
+              >
+                <User className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Navigation Tabs */}
-        <div className="bg-white border-b-2 border-[#E8DFD0] px-4 py-2 flex gap-2">
-          <button
-            onClick={() => setActiveView('products')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
-              activeView === 'products'
-                ? 'bg-[#7BA886] text-white shadow-md'
-                : 'text-gray-600 hover:bg-[#F5F1E8]'
-            }`}
-          >
-            Products
-          </button>
-          <button
-            onClick={() => setActiveView('cart')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all relative ${
-              activeView === 'cart'
-                ? 'bg-[#7BA886] text-white shadow-md'
-                : 'text-gray-600 hover:bg-[#F5F1E8]'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              Cart
-              {cartItemCount > 0 && (
-                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                  activeView === 'cart' ? 'bg-white text-[#7BA886]' : 'bg-[#7BA886] text-white'
-                }`}>
-                  {cartItemCount}
-                </span>
+      <div className="flex-1 overflow-hidden px-4 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-4 h-full">
+          <section className="flex flex-col rounded-[32px] bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#E8EFED]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <button className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition">
+                  + Add New Item
+                </button>
+                <div className="relative w-full sm:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search items here..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 h-12 rounded-2xl border border-[#E6ECE7] shadow-sm"
+                  />
+                </div>
+              </div>
+
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center h-full p-10 text-gray-500">
+                  Loading products...
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="flex items-center justify-center h-full p-10 text-gray-500">
+                  No products found
+                </div>
+              ) : (
+                <PetProductGrid
+                  products={filteredProducts}
+                  onAddToCart={addToCart}
+                  quickAddItems={quickAddItems}
+                />
               )}
             </div>
-          </button>
-          <button
-            onClick={() => setActiveView('history')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
-              activeView === 'history'
-                ? 'bg-[#7BA886] text-white shadow-md'
-                : 'text-gray-600 hover:bg-[#F5F1E8]'
-            }`}
-          >
-            <History className="w-5 h-5 mx-auto" />
-          </button>
-        </div>
+          </section>
 
-        {/* Products View */}
-        {activeView === 'products' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Category Filter */}
-            <div className="bg-white border-b-2 border-[#E8DFD0] px-4 py-3 overflow-x-auto">
-              <div className="flex gap-2">
-                {petCategories.map(category => (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`px-4 py-2 rounded-full whitespace-nowrap transition-all font-semibold shadow-sm ${
-                      selectedCategory === category.id
-                        ? 'bg-[#7BA886] text-white shadow-md scale-105'
-                        : 'bg-white text-gray-700 hover:bg-[#F5F1E8] border-2 border-[#E8DFD0]'
-                    }`}
-                  >
-                    <span className="mr-1">{category.icon}</span>
-                    {category.name}
-                  </button>
-                ))}
+          <section className="flex flex-col rounded-[32px] bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#E8EFED]">
+              <h2 className="text-xl font-semibold text-[#1E3D2D]">Checkout</h2>
+              <div className="mt-4 grid grid-cols-[2fr_1fr_1fr] gap-3 text-xs uppercase tracking-[0.18em] text-gray-500">
+                <span>Name</span>
+                <span className="text-center">Qty</span>
+                <span className="text-right">Price</span>
               </div>
             </div>
-            
-            {/* Products Grid */}
-            <div className="flex-1 overflow-y-auto">
-              <PetProductGrid 
-                products={filteredProducts} 
-                onAddToCart={addToCart}
-                quickAddItems={quickAddItems}
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              <PetCart
+                items={cart}
+                member={currentMember}
+                onUpdateQuantity={updateQuantity}
+                onRemoveItem={removeFromCart}
+                onMemberLogin={() => setIsMemberLoginOpen(true)}
               />
             </div>
-          </div>
-        )}
 
-        {/* Cart View */}
-        {activeView === 'cart' && (
-          <PetCart
-            items={cart}
-            member={currentMember}
-            onUpdateQuantity={updateQuantity}
-            onRemoveItem={removeFromCart}
-            onCheckout={handleCheckout}
-            onMemberLogin={() => setIsMemberLoginOpen(true)}
-          />
-        )}
+            <div className="border-t border-[#E8EFED] bg-[#F8FBF8] p-5">
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Discount (%)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={discount}
+                    onChange={(e) => setDiscount(Number(e.target.value))}
+                    className="w-20 rounded-2xl border border-[#DCE6DC] bg-white px-3 py-2 text-right text-sm text-gray-700"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Sub Total</span>
+                  <span>₱{subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Tax 1.5%</span>
+                  <span>₱{taxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-base font-semibold text-[#1E8C5A]">
+                  <span>Total</span>
+                  <span>₱{totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
 
-        {/* History View */}
-        {activeView === 'history' && (
-          <PetTransactionHistory transactions={transactions} />
-        )}
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Button
+                  onClick={() => setCart([])}
+                  className="flex-1 rounded-2xl border border-[#E6ECE7] bg-white text-[#4B6154] hover:bg-[#F2F6F2]"
+                >
+                  Cancel Order
+                </Button>
+                <Button
+                  onClick={() => toast.success('Order placed on hold')}
+                  className="flex-1 rounded-2xl border border-[#1E8C5A] bg-[#ECF7ED] text-[#1E8C5A] hover:bg-[#D7EFDA]"
+                >
+                  Hold Order
+                </Button>
+                <Button
+                  onClick={handleCheckout}
+                  className="flex-1 rounded-2xl bg-[#1E8C5A] text-white hover:bg-[#166c44]"
+                >
+                  Pay (₱{totalAmount.toFixed(2)})
+                </Button>
+              </div>
+            </div>
+
+          </section>
+        </div>
       </div>
 
       {/* Floating Action Button - Barcode Scanner */}
@@ -352,8 +481,8 @@ export default function App() {
 
       <MemberLogin
         isOpen={isMemberLoginOpen}
-        onClose={() => setIsMemberLoginOpen(false)}
         onLogin={handleMemberLogin}
+        isRequired={true}
       />
     </div>
   );
