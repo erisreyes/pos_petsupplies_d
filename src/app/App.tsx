@@ -7,6 +7,8 @@ import { PetCart } from './components/PetCart';
 import { PetCheckoutModal } from './components/PetCheckoutModal';
 import { BarcodeScanner } from './components/BarcodeScanner';
 import { MemberLogin, type Member } from './components/MemberLogin';
+import { AddItemModal } from './components/AddItemModal';
+import { UpdateItemModal } from './components/UpdateItemModal';
 import { supabase } from '../lib/supabase';
 import { Scan, Search, User, Menu, Camera, List } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -33,24 +35,26 @@ export default function App() {
   const [discount, setDiscount] = useState(20);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isMemberLoginOpen, setIsMemberLoginOpen] = useState(true); // Required login on startup
+  const [isMemberLoginOpen, setIsMemberLoginOpen] = useState(false);
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [isUpdateItemOpen, setIsUpdateItemOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [currentMember, setCurrentMember] = useState<Member | null>(null);
 
-  // Load products from Supabase
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchProducts();
-        setProducts(data);
-      } catch (error) {
-        console.error('Failed to load products:', error);
-        toast.error('Failed to load products from database');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      toast.error('Failed to load products from database');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadProducts();
   }, []);
 
@@ -148,6 +152,11 @@ export default function App() {
       console.error('Scan error:', error);
       toast.error('Error scanning product');
     }
+  };
+
+  const openEditProduct = (product: Product) => {
+    setProductToEdit(product);
+    setIsUpdateItemOpen(true);
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -347,7 +356,10 @@ export default function App() {
           <section className="flex flex-col rounded-[32px] bg-white shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-[#E8EFED]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <button className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition">
+                <button
+                  onClick={() => setIsAddItemOpen(true)}
+                  className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition"
+                >
                   + Add New Item
                 </button>
                 <div className="relative w-full sm:w-80">
@@ -378,6 +390,7 @@ export default function App() {
                   products={filteredProducts}
                   onAddToCart={addToCart}
                   quickAddItems={quickAddItems}
+                  onEditProduct={openEditProduct}
                 />
               )}
             </div>
@@ -482,7 +495,30 @@ export default function App() {
       <MemberLogin
         isOpen={isMemberLoginOpen}
         onLogin={handleMemberLogin}
-        isRequired={true}
+        isRequired={false}
+      />
+
+      <AddItemModal
+        isOpen={isAddItemOpen}
+        onClose={() => setIsAddItemOpen(false)}
+        onProductAdded={() => {
+          loadProducts();
+        }}
+      />
+
+      <UpdateItemModal
+        isOpen={isUpdateItemOpen}
+        onClose={() => {
+          setIsUpdateItemOpen(false);
+          setProductToEdit(null);
+        }}
+        product={productToEdit}
+        onProductUpdated={() => {
+          loadProducts();
+          setIsUpdateItemOpen(false);
+          setProductToEdit(null);
+        }}
+        userRole={currentMember?.role ?? 'staff'}
       />
     </div>
   );

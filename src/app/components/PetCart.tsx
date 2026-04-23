@@ -65,12 +65,7 @@ export function PetCart({
               className="flex items-center justify-between text-sm px-1 py-2 border-b border-[#F0F0F0] last:border-b-0"
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <button
-                  onClick={() => onRemoveItem(item.product.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                
                 <span className="text-gray-700 truncate">{item.product.name}</span>
               </div>
               
@@ -94,6 +89,15 @@ export function PetCart({
                 
                 <div className="text-right min-w-[60px]">
                   <span className="font-semibold text-gray-700">₱{(item.product.price * item.quantity).toFixed(2)}</span>
+                </div>
+
+                <div>
+                <button
+                  onClick={() => onRemoveItem(item.product.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 </div>
               </div>
             </div>

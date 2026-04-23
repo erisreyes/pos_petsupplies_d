@@ -3,8 +3,10 @@ export interface Product {
   name: string;
   price: number;
   category: string;
+  category_id?: string;
   image?: string;
   stock: number;
+  minStockLevel?: number;
 }
 
 export interface CartItem {

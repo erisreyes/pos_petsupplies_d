@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Briefcase } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -25,6 +25,38 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState({
+    fullName: '',
+    role: ''
+  });
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name, role')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            console.error('Error fetching user info:', error);
+          } else {
+            setUserInfo({
+              fullName: data.full_name || 'Unknown',
+              role: data.role || 'Unknown'
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user info:', err);
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +168,11 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
             {isLoading ? 'Authenticating...' : 'Login'}
           </Button>
         </form>
+
+        <div className="profile-info">
+          <p>{userInfo.fullName}</p>
+          <p>{userInfo.role}</p>
+        </div>
       </DialogContent>
     </Dialog>
   );
