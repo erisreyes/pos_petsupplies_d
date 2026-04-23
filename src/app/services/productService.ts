@@ -318,7 +318,7 @@ export async function updateProduct(product: Partial<Product> & { id: string; ba
       const { data: categoryData, error: categoryError } = await supabase
         .from('categories')
         .select('id')
-        .ilike('name', product.category_id)
+        .eq('id', product.category_id)
         .maybeSingle();
 
       console.log('[updateProduct] Category lookup result for', product.category_id, ':', { categoryData, categoryError });
@@ -405,4 +405,19 @@ export async function updateProduct(product: Partial<Product> & { id: string; ba
   });
 
   return updatedProduct;
+}
+
+/**
+ * Delete a product from the database
+ */
+export async function deleteProduct(id: string) {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting product:', error);
+    throw error;
+  }
 }

@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { updateProduct, fetchProductById, fetchCategories } from '../services/productService';
+import { updateProduct, fetchProductById, fetchCategories, deleteProduct } from '../services/productService';
 import { toast } from 'sonner';
 
 interface UpdateItemModalProps {
@@ -185,6 +185,34 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
     }));
   };
 
+  const handleDelete = async () => {
+    if (!formData.id) {
+      toast.error('No product selected for deletion');
+      return;
+    }
+
+    const confirmed = window.confirm(`Are you sure you want to delete "${formData.name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      await deleteProduct(formData.id);
+      toast.success('Product deleted successfully!', {
+        description: `${formData.name} has been removed.`,
+        icon: '🗑️'
+      });
+      onProductUpdated();
+      onClose();
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Failed to delete product', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md bg-white rounded-lg shadow-lg p-6">
@@ -197,14 +225,14 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
             <Label htmlFor="barcode" className="text-sm font-medium">
               Barcode (Scan or Enter Manually) *
             </Label>
-            <Input
+            {/* <Input
               id="barcode"
               value={formData.id}
               onChange={(e) => handleBarcodeScan(e.target.value)}
               placeholder="Scan or enter barcode"
               className="mt-1"
               required
-            />
+            /> */}
           </div>
 
           <div>
@@ -222,7 +250,9 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((category) => (
+                {categories
+                  .filter(category => category.id !== 'all')
+                  .map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.icon} {category.name}
                   </SelectItem>
@@ -320,6 +350,15 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
               disabled={loading}
             >
               Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDelete}
+              className="flex-1"
+              disabled={loading || !formData.id}
+            >
+              {loading ? 'Deleting...' : 'Delete Product'}
             </Button>
             <Button
               type="submit"
