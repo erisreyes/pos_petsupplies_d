@@ -25,6 +25,7 @@ interface Category {
 export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, product }: UpdateItemModalProps) {
   const [formData, setFormData] = useState({
     id: '',
+    barcode: '',
     name: '',
     price: '',
     category_id: '',
@@ -38,6 +39,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
     if (isOpen && product) {
       setFormData({
         id: product.id,
+        barcode: product.barcode,
         name: product.name,
         price: product.price.toString(),
         category_id: product.category_id ?? '',
@@ -49,6 +51,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
     if (isOpen && !product) {
       setFormData({
         id: '',
+        barcode: '',
         name: '',
         price: '',
         category_id: '',
@@ -83,26 +86,27 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
     }
   }, [isOpen]);
 
-  const handleBarcodeScan = async (barcode: string) => {
-    try {
-      const product = await fetchProductById(barcode);
-      if (product) {
-        setFormData({
-          id: product.id,
-          name: product.name,
-          price: product.price.toString(),
-          category_id: product.category_id ?? '',
-          stock: product.stock.toString(),
-          minStockLevel: String(product.minStockLevel ?? 5)
-        });
-      } else {
-        toast.error('Product not found');
-      }
-    } catch (error) {
-      console.error('Error fetching product by barcode:', error);
-      toast.error('Failed to fetch product');
-    }
-  };
+  // const handleBarcodeScan = async (barcode: string) => {
+  //   try {
+  //     const product = await fetchProductById(barcode);
+  //     if (product) {
+  //       setFormData({
+  //         id: product.id,
+  //         barcode: product.barcode,
+  //         name: product.name,
+  //         price: product.price.toString(),
+  //         category_id: product.category_id ?? '',
+  //         stock: product.stock.toString(),
+  //         minStockLevel: String(product.minStockLevel ?? 5)
+  //       });
+  //     } else {
+  //       toast.error('Product not found');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching product by barcode:', error);
+  //     toast.error('Failed to fetch product');
+  //   }
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +137,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
     try {
       const productData = {
         id: formData.id,
+        barcode: formData.barcode,
         name: formData.name,
         price: parseFloat(formData.price),
         category_id: formData.category_id,
@@ -163,6 +168,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
   const handleClose = () => {
     setFormData({
       id: '',
+      barcode: '',
       name: '',
       price: '',
       category_id: '',

@@ -8,7 +8,7 @@ import { Product } from '../types/pos';
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, name, price, category, category_id, stock, min_stock_level') // Added category_id
+    .select('id, barcode,name, price, category, category_id, stock, min_stock_level') // Added category_id and barcode
     .order('category');
 
   if (error) {
@@ -18,6 +18,7 @@ export async function fetchProducts(): Promise<Product[]> {
 
   return data.map(item => ({
     ...item,
+    barcode: item.barcode,
     category_id: item.category_id, // Ensure category_id is mapped
     minStockLevel: item.min_stock_level || 0 // Default to 0 if undefined
   })) as Product[];
@@ -33,7 +34,7 @@ export async function fetchProductsByCategory(category: string): Promise<Product
 
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
     .eq('category', category)
     .order('name');
 
@@ -44,6 +45,7 @@ export async function fetchProductsByCategory(category: string): Promise<Product
 
   return data.map(item => ({
     ...item,
+    barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
   })) as Product[];
@@ -72,7 +74,7 @@ export async function fetchCategories() {
 export async function fetchProductById(id: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
     .eq('id', id)
     .maybeSingle();
 
@@ -94,6 +96,7 @@ export async function fetchProductById(id: string): Promise<Product | null> {
 
   return {
     ...data,
+    barcode: data.barcode,
     category_id: data.category_id,
     minStockLevel: data.min_stock_level ?? 0
   } as Product;
@@ -120,7 +123,7 @@ export async function updateProductStock(id: string, newStock: number) {
 export async function searchProducts(query: string): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
     .or(`name.ilike.%${query}%,category.ilike.%${query}%`);
 
   if (error) {
@@ -130,6 +133,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
 
   return data.map(item => ({
     ...item,
+    barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
   })) as Product[];
@@ -141,7 +145,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
 export async function getLowStockItems(threshold: number = 20): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
     .lt('stock', threshold)
     .order('stock');
 
@@ -152,6 +156,7 @@ export async function getLowStockItems(threshold: number = 20): Promise<Product[
 
   return data.map(item => ({
     ...item,
+    barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
   })) as Product[];

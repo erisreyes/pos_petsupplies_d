@@ -41,6 +41,21 @@ export default function App() {
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [currentMember, setCurrentMember] = useState<Member | null>(null);
 
+  // const testUpdate = async () => {
+  //   const { data, error } = await supabase
+  //     .from('products') // Dapat ay TABLE name ito
+  //     .update({ name: 'Nylon Dog Collar (M) test update success!'}) // Bagong pangalan para sa test
+  //     .eq('id', 'AC001'); // Palitan ito ng actual UUID mula sa Supabase
+
+  //   if (error) {
+  //     alert('Update failed: ' + error.message);
+  //     console.error('Update failed:', error.message);
+  //   } else {
+  //     alert('Update successful! Check console for details.');
+  //     console.log('Update successful! Data:', data);
+  //   }
+  // };
+
   const loadProducts = async () => {
     try {
       setLoading(true);
@@ -56,6 +71,7 @@ export default function App() {
 
   useEffect(() => {
     loadProducts();
+    // testUpdate();
   }, []);
 
   // Load data from localStorage
