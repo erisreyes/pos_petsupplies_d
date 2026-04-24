@@ -434,7 +434,7 @@ export default function App() {
 
             <div className="border-t border-[#E8EFED] bg-[#F8FBF8] p-5">
               <div className="grid gap-4">
-                <div className="flex items-center justify-between text-sm text-gray-600">
+                {/* <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Discount (%)</span>
                   <input
                     type="number"
@@ -452,10 +452,10 @@ export default function App() {
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Tax 1.5%</span>
                   <span>₱{taxAmount.toFixed(2)}</span>
-                </div>
+                </div> */}
                 <div className="flex items-center justify-between text-base font-semibold text-[#1E8C5A]">
                   <span>Total</span>
-                  <span>₱{totalAmount.toFixed(2)}</span>
+                  <span>₱{subtotal.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -476,7 +476,7 @@ export default function App() {
                   onClick={handleCheckout}
                   className="flex-1 rounded-2xl bg-[#1E8C5A] text-white hover:bg-[#166c44]"
                 >
-                  Pay (₱{totalAmount.toFixed(2)})
+                  Pay (₱{subtotal.toFixed(2)})
                 </Button>
               </div>
             </div>
@@ -486,12 +486,12 @@ export default function App() {
       </div>
 
       {/* Floating Action Button - Barcode Scanner */}
-      <button
+      {/* <button
         onClick={() => setIsScannerOpen(true)}
         className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-[#7BA886] to-[#5A8A6B] text-white rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all hover:scale-110 z-40"
       >
         <Scan className="w-8 h-8" />
-      </button>
+      </button> */}
 
       {/* Modals */}
       <BarcodeScanner

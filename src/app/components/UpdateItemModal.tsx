@@ -309,7 +309,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
                 className="mt-1"
                 required
               />
-              <div className="flex gap-2 mt-2">
+              {/* <div className="flex gap-2 mt-2">
                 <Button type="button" onClick={() => handleAddStock(5)}>
                   Add 5
                 </Button>
@@ -319,6 +319,39 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
                 <Button type="button" onClick={() => handleAddStock(20)}>
                   Add 20
                 </Button>
+              </div> */}
+
+              <div className="space-y-2">
+                <Label>Quick Add Stock</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1" // Pinupuno ang space nang pantay-pantay
+                    onClick={() => handleAddStock(5)}
+                  >
+                    +5
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => handleAddStock(10)}
+                  >
+                    +10
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => handleAddStock(20)}
+                  >
+                    +20
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
