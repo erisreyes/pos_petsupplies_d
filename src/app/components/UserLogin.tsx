@@ -10,17 +10,16 @@ export interface Member {
   name: string;
   role: 'admin' | 'staff' | 'manager';
   phone: string;
-  loyaltyPoints: number;
 }
 
-interface MemberLoginProps {
+interface UserLoginProps {
   isOpen: boolean;
   onClose?: () => void;
   onLogin: (member: Member) => void;
   isRequired?: boolean;
 }
 
-export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: MemberLoginProps) {
+export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: UserLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +63,6 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
     setError(null);
 
     try {
-      // Supabase authentication
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -77,7 +75,6 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
       }
 
       if (data.user) {
-        // Fetch staff data from Supabase profile table
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -90,7 +87,6 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
               name: profileData.full_name || email.split('@')[0],
               role: profileData.role || 'staff',
               phone: profileData.phone || '',
-              loyaltyPoints: profileData.loyalty_points ?? 0,
             }
           : {
               id: data.user.id,
@@ -100,7 +96,6 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
                 'Staff Member',
               role: 'staff' as const,
               phone: '',
-              loyaltyPoints: 0,
             };
 
         if (profileError && !profileData) {
@@ -178,4 +173,4 @@ export function MemberLogin({ isOpen, onClose, onLogin, isRequired = false }: Me
   );
 }
 
-export default MemberLogin;
+export default UserLogin;

@@ -6,7 +6,7 @@ import { PetProductGrid } from './components/PetProductGrid';
 import { PetCart } from './components/PetCart';
 import { PetCheckoutModal } from './components/PetCheckoutModal';
 import { BarcodeScanner } from './components/BarcodeScanner';
-import { MemberLogin, type Member } from './components/MemberLogin';
+import { UserLogin, type Member } from './components/UserLogin';
 import { AddItemModal } from './components/AddItemModal';
 import { UpdateItemModal } from './components/UpdateItemModal';
 import { supabase } from '../lib/supabase';
@@ -40,9 +40,8 @@ export default function App() {
   const [isUpdateItemOpen, setIsUpdateItemOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [cashierId, setCashierId] = useState<string | null>(null);
-
+  const [userRole, setUserRole] = useState<string | null>(null);
   
-
   const loadProducts = async () => {
     try {
       setLoading(true);
@@ -58,10 +57,30 @@ export default function App() {
 
   // Initialize authenticated user (cashier) ID and subscribe to auth state
   useEffect(() => {
+    const fetchUserRole = async (userId: string | null) => {
+      if (!userId) return;
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        if (!error && profile?.role) {
+          setUserRole(profile.role);
+        } else {
+          setUserRole(null);
+        }
+      } catch (err) {
+        setUserRole(null);
+        console.error('Failed to fetch user role:', err);
+      }
+    };
+
     const initialize = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCashierId(user.id);
+        fetchUserRole(user.id);
         setIsLoginOpen(false);
       } else {
         setIsLoginOpen(true);
@@ -71,12 +90,16 @@ export default function App() {
 
     initialize();
 
+    // subscribe to auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN') {
-        setCashierId(session?.user?.id ?? null);
+        const id = session?.user?.id ?? null;
+        setCashierId(id);
+        fetchUserRole(id);
         setIsLoginOpen(false);
       } else if (event === 'SIGNED_OUT') {
         setCashierId(null);
+        setUserRole(null);
         setIsLoginOpen(true);
       }
     });
@@ -215,6 +238,7 @@ export default function App() {
   const handleStaffLogin = (member: Member) => {
     // member.id should correspond to the authenticated user's id/profile
     setCashierId(member.id);
+    setUserRole(member.role);
     setIsLoginOpen(false);
     toast.success(`Welcome, ${member.name}`);
   };
@@ -325,12 +349,14 @@ export default function App() {
           <section className="flex flex-col rounded-[32px] bg-white shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-[#E8EFED]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <button
-                  onClick={() => setIsAddItemOpen(true)}
-                  className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition"
-                >
-                  + Add New Item
-                </button>
+                {userRole === 'admin' && (
+                  <button
+                    onClick={() => setIsAddItemOpen(true)}
+                    className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition"
+                  >
+                    + Add New Item
+                  </button>
+                )}
                 <div className="relative w-full sm:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
@@ -359,7 +385,7 @@ export default function App() {
                   products={filteredProducts}
                   onAddToCart={addToCart}
                   quickAddItems={quickAddItems}
-                  onEditProduct={openEditProduct}
+                  onEditProduct={userRole === 'admin' ? openEditProduct : undefined}
                 />
               )}
             </div>
@@ -453,7 +479,7 @@ export default function App() {
         onComplete={completeCheckout}
       />
 
-      <MemberLogin
+      <UserLogin
         isOpen={isLoginOpen}
         onLogin={handleStaffLogin}
         isRequired={true}
@@ -479,7 +505,7 @@ export default function App() {
           setIsUpdateItemOpen(false);
           setProductToEdit(null);
         }}
-        userRole={'staff'}
+        userRole={userRole ?? 'staff'}
       />
     </div>
   );
