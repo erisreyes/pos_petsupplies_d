@@ -1,36 +1,20 @@
 import { CartItem } from '../types/pos';
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
 
-interface Member {
-  id: string;
-  name: string;
-  phone: string;
-  petName?: string;
-  petBirthday?: string;
-  loyaltyPoints: number;
-}
-
 interface PetCartProps {
   items: CartItem[];
-  member: Member | null;
   onUpdateQuantity: (productId: string, delta: number) => void;
   onRemoveItem: (productId: string) => void;
-  onMemberLogin: () => void;
 }
 
 export function PetCart({ 
   items, 
-  member, 
   onUpdateQuantity, 
   onRemoveItem, 
-  onMemberLogin 
 }: PetCartProps) {
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  
-  // Calculate member discount (5% if logged in)
-  const memberDiscount = member ? subtotal * 0.05 : 0;
-  const total = subtotal - memberDiscount;
+  const total = subtotal;
 
   if (items.length === 0) {
     return (

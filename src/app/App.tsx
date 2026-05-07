@@ -35,26 +35,13 @@ export default function App() {
   const [discount, setDiscount] = useState(20);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isMemberLoginOpen, setIsMemberLoginOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isUpdateItemOpen, setIsUpdateItemOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
-  const [currentMember, setCurrentMember] = useState<Member | null>(null);
+  const [cashierId, setCashierId] = useState<string | null>(null);
 
-  // const testUpdate = async () => {
-  //   const { data, error } = await supabase
-  //     .from('products') // Dapat ay TABLE name ito
-  //     .update({ name: 'Nylon Dog Collar (M) test update success!'}) // Bagong pangalan para sa test
-  //     .eq('id', 'AC001'); // Palitan ito ng actual UUID mula sa Supabase
-
-  //   if (error) {
-  //     alert('Update failed: ' + error.message);
-  //     console.error('Update failed:', error.message);
-  //   } else {
-  //     alert('Update successful! Check console for details.');
-  //     console.log('Update successful! Data:', data);
-  //   }
-  // };
+  
 
   const loadProducts = async () => {
     try {
@@ -69,15 +56,37 @@ export default function App() {
     }
   };
 
+  // Initialize authenticated user (cashier) ID and subscribe to auth state
   useEffect(() => {
-    loadProducts();
-    // testUpdate();
+    const initialize = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCashierId(user.id);
+        setIsLoginOpen(false);
+      } else {
+        setIsLoginOpen(true);
+      }
+      loadProducts();
+    };
+
+    initialize();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        setCashierId(session?.user?.id ?? null);
+        setIsLoginOpen(false);
+      } else if (event === 'SIGNED_OUT') {
+        setCashierId(null);
+        setIsLoginOpen(true);
+      }
+    });
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   // Load data from localStorage
   useEffect(() => {
     const savedTransactions = localStorage.getItem('pet-pos-transactions');
-    const savedMember = localStorage.getItem('pet-pos-member');
     
     if (savedTransactions) {
       const parsed = JSON.parse(savedTransactions);
@@ -85,10 +94,6 @@ export default function App() {
         ...t,
         timestamp: new Date(t.timestamp)
       })));
-    }
-    
-    if (savedMember) {
-      setCurrentMember(JSON.parse(savedMember));
     }
   }, []);
 
@@ -99,13 +104,7 @@ export default function App() {
     }
   }, [transactions]);
 
-  useEffect(() => {
-    if (currentMember) {
-      localStorage.setItem('pet-pos-member', JSON.stringify(currentMember));
-    } else {
-      localStorage.removeItem('pet-pos-member');
-    }
-  }, [currentMember]);
+  
 
   const categoryTabs = [
     { id: 'all', name: 'All' },
@@ -201,15 +200,6 @@ export default function App() {
     setIsCheckoutOpen(true);
   };
 
-  const handleMemberLogin = (member: Member) => {
-    setCurrentMember(member);
-    setIsMemberLoginOpen(false);
-    toast.success(`Welcome, ${member.name}!`, {
-      description: `Logged in as ${member.role.charAt(0).toUpperCase() + member.role.slice(1)}`,
-      icon: '✅',
-    });
-  };
-
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -217,16 +207,21 @@ export default function App() {
       console.warn('Supabase sign out failed:', error);
     }
 
-    setCurrentMember(null);
     setCart([]);
-    setIsMemberLoginOpen(true);
     toast.success('Logged out successfully');
+    setIsLoginOpen(true);
+  };
+
+  const handleStaffLogin = (member: Member) => {
+    // member.id should correspond to the authenticated user's id/profile
+    setCashierId(member.id);
+    setIsLoginOpen(false);
+    toast.success(`Welcome, ${member.name}`);
   };
 
   const completeCheckout = (paymentMethod: PaymentMethod) => {
     const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const memberDiscount = currentMember ? subtotal * 0.05 : 0;
-    const total = subtotal - memberDiscount;
+    const total = subtotal;
 
     const transaction: Transaction = {
       id: Date.now().toString(),
@@ -239,21 +234,9 @@ export default function App() {
 
     setTransactions(prev => [transaction, ...prev]);
     
-    // Award loyalty points if member is logged in
-    if (currentMember) {
-      const pointsEarned = Math.floor(total / 10); // 1 point per 10 pesos
-      setCurrentMember({
-        ...currentMember,
-        loyaltyPoints: currentMember.loyaltyPoints + pointsEarned
-      });
-      toast.success(`Transaction complete! Earned ${pointsEarned} points`, {
-        icon: '⭐',
-      });
-    } else {
-      toast.success('Transaction completed!', {
-        icon: '✅',
-      });
-    }
+    toast.success('Transaction completed!', {
+      icon: '✅',
+    });
 
     setCart([]);
     setIsCheckoutOpen(false);
@@ -326,43 +309,13 @@ export default function App() {
             <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
               <List className="w-5 h-5" />
             </button>
-            {currentMember ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
-                    title="User menu"
-                  >
-                    <span className="font-semibold">{currentMember.name.charAt(0)}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 p-2">
-                  <div className="px-3 py-2 rounded-lg bg-[#F5F7F3]">
-                    <p className="text-sm font-semibold text-[#1E3D2D]">{currentMember.name}</p>
-                    <p className="text-xs text-gray-500">{currentMember.role.charAt(0).toUpperCase() + currentMember.role.slice(1)}</p>
-                    {currentMember.phone && (
-                      <p className="mt-2 text-xs text-gray-500">{currentMember.phone}</p>
-                    )}
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="rounded-md px-3 py-2 text-sm text-[#B91C1C] hover:bg-red-50"
-                    onSelect={handleLogout}
-                    variant="destructive"
-                  >
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <button
-                onClick={() => setIsMemberLoginOpen(true)}
-                className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
-                title="Login"
-              >
-                <User className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              onClick={handleLogout}
+              className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
+              title="Logout"
+            >
+              <User className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </header>
@@ -425,10 +378,8 @@ export default function App() {
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
               <PetCart
                 items={cart}
-                member={currentMember}
                 onUpdateQuantity={updateQuantity}
                 onRemoveItem={removeFromCart}
-                onMemberLogin={() => setIsMemberLoginOpen(true)}
               />
             </div>
 
@@ -467,12 +418,6 @@ export default function App() {
                   Cancel Order
                 </Button>
                 <Button
-                  onClick={() => toast.success('Order placed on hold')}
-                  className="flex-1 rounded-2xl border border-[#1E8C5A] bg-[#ECF7ED] text-[#1E8C5A] hover:bg-[#D7EFDA]"
-                >
-                  Hold Order
-                </Button>
-                <Button
                   onClick={handleCheckout}
                   className="flex-1 rounded-2xl bg-[#1E8C5A] text-white hover:bg-[#166c44]"
                 >
@@ -504,14 +449,14 @@ export default function App() {
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         items={cart}
-        member={currentMember}
+        cashierId={cashierId || ''}
         onComplete={completeCheckout}
       />
 
       <MemberLogin
-        isOpen={isMemberLoginOpen}
-        onLogin={handleMemberLogin}
-        isRequired={false}
+        isOpen={isLoginOpen}
+        onLogin={handleStaffLogin}
+        isRequired={true}
       />
 
       <AddItemModal
@@ -534,7 +479,7 @@ export default function App() {
           setIsUpdateItemOpen(false);
           setProductToEdit(null);
         }}
-        userRole={currentMember?.role ?? 'staff'}
+        userRole={'staff'}
       />
     </div>
   );

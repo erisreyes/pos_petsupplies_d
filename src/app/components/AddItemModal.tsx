@@ -24,6 +24,7 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
     id: '',
     name: '',
     price: '',
+    cost: '',
     category: '',
     stock: '',
     minStockLevel: '5'
@@ -54,7 +55,7 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.price || !formData.category || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.cost || !formData.category || !formData.stock) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -65,6 +66,7 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
         id: formData.id,
         name: formData.name,
         price: parseFloat(formData.price),
+        cost: parseFloat(formData.cost),
         category: formData.category,
         stock: parseInt(formData.stock),
         minStockLevel: parseInt(formData.minStockLevel)
@@ -81,6 +83,7 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
         id: '',
         name: '',
         price: '',
+        cost: '',
         category: '',
         stock: '',
         minStockLevel: '5'
@@ -103,6 +106,7 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
       id: '',
       name: '',
       price: '',
+      cost: '',
       category: '',
       stock: '',
       minStockLevel: '5'
@@ -178,6 +182,27 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
                 />
               </div>
             </div>
+            
+            <div>
+              <Label htmlFor="Cost" className="text-sm font-medium">
+                Cost (₱) *
+              </Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₱</span>
+                <Input
+                  id="cost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.cost}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cost: e.target.value }))}
+                  placeholder="89.99"
+                  className="pl-8"
+                  required
+                />
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="stock" className="text-sm font-medium">
                 Initial Stock *

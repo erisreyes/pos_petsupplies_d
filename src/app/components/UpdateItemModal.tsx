@@ -28,6 +28,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
     barcode: '',
     name: '',
     price: '',
+    cost: '',
     category_id: '',
     stock: '',
     minStockLevel: '5'
@@ -42,6 +43,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
         barcode: product.barcode,
         name: product.name,
         price: product.price.toString(),
+        cost: product.cost?.toString() || '',
         category_id: product.category_id ?? '',
         stock: product.stock.toString(),
         minStockLevel: String(product.minStockLevel ?? 5)
@@ -54,6 +56,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
         barcode: '',
         name: '',
         price: '',
+        cost: '',
         category_id: '',
         stock: '',
         minStockLevel: '5'
@@ -115,6 +118,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
       id: formData.id,
       name: formData.name,
       price: formData.price,
+      cost: formData.cost,
       category_id: formData.category_id,
       stock: formData.stock,
       minStockLevel: formData.minStockLevel
@@ -140,6 +144,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
         barcode: formData.barcode,
         name: formData.name,
         price: parseFloat(formData.price),
+        cost: formData.cost ? parseFloat(formData.cost) : undefined,
         category_id: formData.category_id,
         stock: parseInt(formData.stock),
         minStockLevel: parseInt(formData.minStockLevel) || 0
@@ -171,6 +176,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
       barcode: '',
       name: '',
       price: '',
+      cost: '',
       category_id: '',
       stock: '',
       minStockLevel: '5'
@@ -275,7 +281,25 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="cost" className="text-sm font-medium">
+                Cost (₱)
+              </Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₱</span>
+                <Input
+                  id="cost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.cost}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cost: e.target.value }))}
+                  placeholder="45.00"
+                  className="pl-8"
+                />
+              </div>
+            </div>
             <div>
               <Label htmlFor="price" className="text-sm font-medium">
                 Price (₱) *
@@ -295,6 +319,7 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
                 />
               </div>
             </div>
+            
             <div>
               <Label htmlFor="stock" className="text-sm font-medium">
                 Stock *
@@ -309,18 +334,6 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
                 className="mt-1"
                 required
               />
-              {/* <div className="flex gap-2 mt-2">
-                <Button type="button" onClick={() => handleAddStock(5)}>
-                  Add 5
-                </Button>
-                <Button type="button" onClick={() => handleAddStock(10)}>
-                  Add 10
-                </Button>
-                <Button type="button" onClick={() => handleAddStock(20)}>
-                  Add 20
-                </Button>
-              </div> */}
-
               <div className="space-y-2">
                 <Label>Quick Add Stock</Label>
                 <div className="flex flex-wrap gap-2">

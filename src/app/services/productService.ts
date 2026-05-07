@@ -8,7 +8,7 @@ import { Product } from '../types/pos';
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, barcode,name, price, category, category_id, stock, min_stock_level') // Added category_id and barcode
+    .select('id, barcode,name, price, cost, category, category_id, stock, min_stock_level') // Added category_id and barcode
     .order('category');
 
   if (error) {
@@ -18,6 +18,7 @@ export async function fetchProducts(): Promise<Product[]> {
 
   return data.map(item => ({
     ...item,
+    cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id, // Ensure category_id is mapped
     minStockLevel: item.min_stock_level || 0 // Default to 0 if undefined
@@ -34,7 +35,7 @@ export async function fetchProductsByCategory(category: string): Promise<Product
 
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
     .eq('category', category)
     .order('name');
 
@@ -45,6 +46,7 @@ export async function fetchProductsByCategory(category: string): Promise<Product
 
   return data.map(item => ({
     ...item,
+    cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
@@ -74,7 +76,7 @@ export async function fetchCategories() {
 export async function fetchProductById(id: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
     .eq('id', id)
     .maybeSingle();
 
@@ -96,6 +98,7 @@ export async function fetchProductById(id: string): Promise<Product | null> {
 
   return {
     ...data,
+    cost: data.cost,
     barcode: data.barcode,
     category_id: data.category_id,
     minStockLevel: data.min_stock_level ?? 0
@@ -123,7 +126,7 @@ export async function updateProductStock(id: string, newStock: number) {
 export async function searchProducts(query: string): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
     .or(`name.ilike.%${query}%,category.ilike.%${query}%`);
 
   if (error) {
@@ -133,6 +136,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
 
   return data.map(item => ({
     ...item,
+    cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
@@ -145,7 +149,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
 export async function getLowStockItems(threshold: number = 20): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
-    .select('id, barcode, name, price, category, category_id, stock, min_stock_level')
+    .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
     .lt('stock', threshold)
     .order('stock');
 
@@ -156,6 +160,7 @@ export async function getLowStockItems(threshold: number = 20): Promise<Product[
 
   return data.map(item => ({
     ...item,
+    cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
@@ -232,6 +237,7 @@ export async function addProduct(product: Omit<Product, 'id' | 'created_at' | 'u
       id: productId,
       name: product.name,
       price: product.price,
+      cost: product.cost,
       category_id: categoryData.id,
       stock: product.stock,
       min_stock_level: product.minStockLevel || 5,
@@ -366,6 +372,7 @@ export async function updateProduct(product: Partial<Product> & { id: string; ba
   // Only update fields that are provided and not undefined/null
   if (product.name !== undefined && product.name !== null) updatePayload.name = product.name;
   if (product.price !== undefined && product.price !== null) updatePayload.price = product.price;
+  if (product.cost !== undefined && product.cost !== null) updatePayload.cost = product.cost;
   if (product.stock !== undefined && product.stock !== null) updatePayload.stock = product.stock;
   if (product.minStockLevel !== undefined && product.minStockLevel !== null) updatePayload.min_stock_level = product.minStockLevel;
   if (product.barcode !== undefined && product.barcode !== null) updatePayload.barcode = product.barcode;
