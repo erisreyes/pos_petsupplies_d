@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product } from '../types/pos';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -211,6 +211,19 @@ export function UpdateItemModal({ isOpen, onClose, onProductUpdated, userRole, p
       onClose();
     } catch (error) {
       console.error('Error deleting product:', error);
+      const errAny = error as any;
+      const isFkViolation =
+        errAny?.code === '23503' ||
+        String(errAny?.message ?? '').toLowerCase().includes('foreign key constraint');
+
+      if (isFkViolation) {
+        toast.error('Unable to delete product', {
+          description:
+            'This product already exists in transaction history. To keep past receipts accurate, it cannot be deleted.',
+        });
+        return;
+      }
+
       toast.error('Failed to delete product', {
         description: error instanceof Error ? error.message : 'Unknown error occurred'
       });
