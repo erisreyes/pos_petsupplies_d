@@ -114,6 +114,13 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
     onClose();
   };
 
+  const handleAddStock = (amount: number) => {
+    setFormData(prev => ({
+      ...prev,
+      stock: (parseInt(prev.stock || '0') + amount).toString()
+    }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
@@ -217,6 +224,38 @@ export function AddItemModal({ isOpen, onClose, onProductAdded }: AddItemModalPr
                 className="mt-1"
                 required
               />
+              <div className="space-y-2 mt-2">
+                <Label>Quick Add Stock</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleAddStock(5)}
+                  >
+                    +5
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleAddStock(10)}
+                  >
+                    +10
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleAddStock(20)}
+                  >
+                    +20
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 

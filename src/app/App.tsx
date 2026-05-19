@@ -8,6 +8,7 @@ import { PetCheckoutModal } from './components/PetCheckoutModal';
 import { BarcodeScanner } from './components/BarcodeScanner';
 import { UserLogin, type Member } from './components/UserLogin';
 import InventoryPage from './pages/InventoryPage';
+import DashboardPage from './pages/Dashboard';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AddItemModal } from './components/AddItemModal';
 import { UpdateItemModal } from './components/UpdateItemModal';
@@ -338,7 +339,7 @@ export default function App() {
                         onClick={() => { setDrawerSection('reports'); navigate('/reports'); }}
                         className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${drawerSection === 'reports' ? 'bg-[#E7F7EE] text-[#1E8C5A]' : 'text-gray-700 hover:bg-[#F8FAF8]'}`}
                       >
-                        Sales Reports
+                        Sales Dashboard
                       </button>
 
                       <button
@@ -499,7 +500,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Main />} />
         <Route path="/inventory" element={<InventoryPage />} />
-        <Route path="/reports" element={<div className="p-6">Sales Reports (placeholder)</div>} />
+        <Route path="/reports" element={<DashboardPage />} />
         <Route path="/users" element={<div className="p-6">User Management (placeholder)</div>} />
       </Routes>
     </BrowserRouter>
