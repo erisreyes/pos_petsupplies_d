@@ -5,40 +5,47 @@ import { Toaster } from '../components/ui/sonner';
 import { Menu, Camera, List, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import HeroMetrics from '../components/dashboard/HeroMetrics';
-import SalesTrendChart from '../components/dashboard/SalesTrendChart';
-import TopProducts from '../components/dashboard/TopProducts';
-import PaymentDonut from '../components/dashboard/PaymentDonut';
-import CategoryChart from '../components/dashboard/CategoryChart';
-import CashierTable from '../components/dashboard/CashierTable';
-import { useDashboardData } from '../hooks/useDashboardData';
+import HeroMetrics from '../components/reports/HeroMetrics';
+import SalesTrendChart from '../components/reports/SalesTrendChart';
+import TopProducts from '../components/reports/TopProducts';
+import PaymentDonut from '../components/reports/PaymentDonut';
+import CategoryChart from '../components/reports/CategoryChart';
+import BranchTable from '../components/reports/BranchTable';
+import { useReportData } from '../hooks/useReportData';
+import { getTodayYmdInReportZone, type RangeKey } from '../../lib/reportDateRange';
+import { cn } from '../components/ui/utils';
 
-type RangeKey = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'single_day' | 'custom';
+export const REPORT_NAV_LABEL = 'Sales Report Dashboard';
 
-export default function Dashboard() {
-  const { data, loading, error } = useDashboardData();
+const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'custom', label: 'Custom Range' },
+];
 
+export default function ReportDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerSection, setDrawerSection] = useState<'pos' | 'inventory' | 'reports' | 'users'>('reports');
-  const [range, setRange] = useState<RangeKey>('this_month');
-  const [singleDate, setSingleDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [customStart, setCustomStart] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [customEnd, setCustomEnd] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [range, setRange] = useState<RangeKey>('today');
+  const [customStart, setCustomStart] = useState<string>(() => getTodayYmdInReportZone());
+  const [customEnd, setCustomEnd] = useState<string>(() => getTodayYmdInReportZone());
+
+  const { data, loading } = useReportData(range, undefined, customStart, customEnd);
 
   const navItems = [
     { id: 'pos', name: 'Point of Sale', path: '/' },
     { id: 'inventory', name: 'Inventory Management', path: '/inventory' },
-    { id: 'reports', name: 'Sales Reports', path: '/reports' },
+    { id: 'reports', name: REPORT_NAV_LABEL, path: '/reports' },
     { id: 'users', name: 'User Management', path: '/users' },
   ];
 
-  // Keep active drawer item in sync with current route
   React.useEffect(() => {
     const p = location.pathname;
     if (p === '/' || p === '') return setDrawerSection('pos');
     const match = navItems.find((n) => p.startsWith(n.path) && n.path !== '/');
-    if (match) setDrawerSection(match.id as any);
+    if (match) setDrawerSection(match.id as 'pos' | 'inventory' | 'reports' | 'users');
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -77,7 +84,7 @@ export default function Dashboard() {
                       <button
                         key={item.id}
                         onClick={() => {
-                          setDrawerSection(item.id as any);
+                          setDrawerSection(item.id as 'pos' | 'inventory' | 'reports' | 'users');
                           navigate(item.path);
                         }}
                         className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${drawerSection === item.id ? 'bg-[#E7F7EE] text-[#1E8C5A]' : 'text-gray-700 hover:bg-[#F8FAF8]'}`}
@@ -103,7 +110,7 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-lg font-semibold">Mini Step Pet Supplies</h1>
-              <p className="text-xs text-white/80">Sales Dashboard</p>
+              <p className="text-xs text-white/80">{REPORT_NAV_LABEL}</p>
             </div>
           </div>
 
@@ -125,89 +132,87 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Range Selector */}
-      <div className="bg-[#166B47] text-white px-4 py-3 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <span className="text-sm text-white/90">Date Range:</span>
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value as RangeKey)}
-            className="rounded-lg bg-white/20 border border-white/40 px-3 py-2 text-sm text-white outline-none hover:bg-white/30 transition"
-          >
-            <option value="today" className="bg-slate-800">Today</option>
-            <option value="yesterday" className="bg-slate-800">Yesterday</option>
-            <option value="this_week" className="bg-slate-800">This Week</option>
-            <option value="last_week" className="bg-slate-800">Last Week</option>
-            <option value="this_month" className="bg-slate-800">This Month</option>
-            <option value="last_month" className="bg-slate-800">Last Month</option>
-            <option value="single_day" className="bg-slate-800">Single Day</option>
-            <option value="custom" className="bg-slate-800">Custom Range</option>
-          </select>
+      <div className="px-4 pt-4 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#E5E7EB] pb-4">
+          <span className="text-sm font-semibold text-gray-700 shrink-0"></span>
 
-          {range === 'single_day' && (
-            <input
-              type="date"
-              value={singleDate}
-              onChange={(e) => setSingleDate(e.target.value)}
-              className="rounded-lg bg-white/20 border border-white/40 px-3 py-2 text-sm text-white outline-none hover:bg-white/30 transition"
-            />
-          )}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap sm:justify-end">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Select date range">
+              {RANGE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRange(option.value)}
+                  className={cn(
+                    'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                    range === option.value
+                      ? 'bg-[#15803d] text-white shadow-sm'
+                      : 'border border-[#D1D5DB] bg-white text-gray-700 hover:border-[#15803d]/40 hover:bg-[#F9FAFB]',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
           {range === 'custom' && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="sr-only" htmlFor="report-custom-start">
+                Start date
+              </label>
               <input
+                id="report-custom-start"
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="rounded-lg bg-white/20 border border-white/40 px-3 py-2 text-sm text-white outline-none hover:bg-white/30 transition"
+                className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-[#15803d] focus:ring-2 focus:ring-[#15803d]/20"
               />
-              <span className="text-white/70">—</span>
+              <span className="text-sm text-gray-500" aria-hidden>
+                to
+              </span>
+              <label className="sr-only" htmlFor="report-custom-end">
+                End date
+              </label>
               <input
+                id="report-custom-end"
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="rounded-lg bg-white/20 border border-white/40 px-3 py-2 text-sm text-white outline-none hover:bg-white/30 transition"
+                className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-[#15803d] focus:ring-2 focus:ring-[#15803d]/20"
               />
             </div>
           )}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden px-4 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
-          <div>
-          <HeroMetrics loading={loading} data={data} />
+      <div className="flex-1 overflow-hidden px-4 py-4 max-w-7xl mx-auto">
+        <HeroMetrics loading={loading} data={data} />
 
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[620px_1fr] gap-6">
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <SalesTrendChart loading={loading} data={data} range={range} singleDate={singleDate} customStart={customStart} customEnd={customEnd} />
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg shadow-sm">
-                <TopProducts items={data?.topProducts ?? []} loading={loading} />
-              </div>
-            </div>
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-[620px_1fr] gap-6">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <SalesTrendChart loading={loading} data={data} range={range} customStart={customStart} customEnd={customEnd} />
           </div>
 
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <PaymentDonut data={data} />
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <CategoryChart data={data} />
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm lg:col-span-1">
-              <CashierTable rows={data?.cashiers ?? []} loading={loading} />
+              <TopProducts items={data?.topProducts ?? []} loading={loading} />
             </div>
           </div>
         </div>
 
-        <aside className="hidden lg:block">
-          <div className="bg-white p-4 rounded-lg shadow-sm">Quick Filters / Actions</div>
-        </aside>
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <PaymentDonut data={data} loading={loading} />
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <CategoryChart data={data} loading={loading} />
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm lg:col-span-1">
+            <BranchTable rows={data?.branches ?? []} loading={loading} />
+          </div>
+        </div>
       </div>
     </div>
-  </div>
   );
 }

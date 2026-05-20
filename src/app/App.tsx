@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Product, CartItem, Transaction, PaymentMethod } from './types/pos';
 import { quickAddItems } from './data/pet-products';
-import { fetchProducts, fetchProductById } from './services/productService';
+import { fetchProducts, fetchProductById, sortProductsStable } from './services/productService';
+import { CategoryTabBar } from './components/CategoryTabBar';
 import { PetProductGrid } from './components/PetProductGrid';
 import { PetCart } from './components/PetCart';
-import { PetCheckoutModal } from './components/PetCheckoutModal';
+import { PosCheckoutPanel } from './components/PosCheckoutPanel';
 import { BarcodeScanner } from './components/BarcodeScanner';
 import { UserLogin, type Member } from './components/UserLogin';
 import InventoryPage from './pages/InventoryPage';
-import DashboardPage from './pages/Dashboard';
+import ReportDashboard, { REPORT_NAV_LABEL } from './pages/ReportDashboard';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AddItemModal } from './components/AddItemModal';
 import { UpdateItemModal } from './components/UpdateItemModal';
 import { supabase } from '../lib/supabase';
-import { Scan, Search, User, Menu, Camera, List } from 'lucide-react';
+import { Search, User, Menu, Camera } from 'lucide-react';
 import { Button } from './components/ui/button';
 import {
   DropdownMenu,
@@ -140,21 +141,24 @@ export default function App() {
     { id: 'meds', name: 'Meds' },
   ];
 
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    const categoryMatch =
-      selectedCategory === 'all' ||
-      (selectedCategory === 'dog' && product.category.toLowerCase().includes('dog')) ||
-      (selectedCategory === 'cat' && product.category.toLowerCase().includes('cat')) ||
-      (selectedCategory === 'meds' && product.category.toLowerCase() === 'pharmacy');
+    const filtered = products.filter((product) => {
+      const categoryMatch =
+        selectedCategory === 'all' ||
+        (selectedCategory === 'dog' && product.category.toLowerCase().includes('dog')) ||
+        (selectedCategory === 'cat' && product.category.toLowerCase().includes('cat')) ||
+        (selectedCategory === 'meds' && product.category.toLowerCase() === 'pharmacy');
 
-    const searchMatch =
-      product.name.toLowerCase().includes(query) ||
-      product.category.toLowerCase().includes(query) ||
-      product.id.toLowerCase().includes(query);
+      const searchMatch =
+        product.name.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query) ||
+        product.id.toLowerCase().includes(query);
 
-    return categoryMatch && searchMatch;
-  });
+      return categoryMatch && searchMatch;
+    });
+    return sortProductsStable(filtered);
+  }, [products, searchQuery, selectedCategory]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -280,15 +284,19 @@ export default function App() {
     const navigate = useNavigate();
 
     return (
-      <div className="h-screen flex flex-col bg-[#F4F8F3]">
+      <div className="h-dvh flex flex-col bg-[#F4F8F3]">
         <Toaster richColors />
 
-        <header className="bg-[#1E8C5A] text-white shadow-lg">
-          <div className="px-4 py-4 flex items-center justify-between gap-3">
+        <header className="shrink-0 bg-[#1E8C5A] text-white shadow-lg pt-[env(safe-area-inset-top)]">
+          <div className="px-3 py-3 lg:px-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Drawer direction="left">
                 <DrawerTrigger asChild>
-                  <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
+                  <button
+                    type="button"
+                    className="min-h-11 min-w-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition touch-manipulation"
+                    aria-label="Open menu"
+                  >
                     <Menu className="w-5 h-5" />
                   </button>
                 </DrawerTrigger>
@@ -308,26 +316,6 @@ export default function App() {
                         Point of Sale
                       </button>
 
-                      {drawerSection === 'pos' && (
-                        <div className="mt-2 grid grid-cols-2 gap-3">
-                          {categoryTabs.map((category) => (
-                            <button
-                              key={category.id}
-                              onClick={() => {
-                                setSelectedCategory(category.id);
-                              }}
-                              className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                                selectedCategory === category.id
-                                  ? 'bg-[#E7F7EE] text-[#1E8C5A] border border-[#C9E8D5]'
-                                  : 'bg-[#F8FAF8] text-gray-600 border border-[#E6ECE7] hover:bg-[#ECF5EE]'
-                              }`}
-                            >
-                              {category.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
                       <button
                         onClick={() => { setDrawerSection('inventory'); navigate('/inventory'); }}
                         className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${drawerSection === 'inventory' ? 'bg-[#E7F7EE] text-[#1E8C5A]' : 'text-gray-700 hover:bg-[#F8FAF8]'}`}
@@ -339,7 +327,7 @@ export default function App() {
                         onClick={() => { setDrawerSection('reports'); navigate('/reports'); }}
                         className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${drawerSection === 'reports' ? 'bg-[#E7F7EE] text-[#1E8C5A]' : 'text-gray-700 hover:bg-[#F8FAF8]'}`}
                       >
-                        Sales Dashboard
+                        {REPORT_NAV_LABEL}
                       </button>
 
                       <button
@@ -369,17 +357,22 @@ export default function App() {
               </div>
             </div>
 
-            <div className="hidden md:flex items-center gap-3">
-              <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="min-h-11 min-w-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition touch-manipulation"
+                title="Scan barcode"
+                aria-label="Scan barcode"
+              >
                 <Camera className="w-5 h-5" />
               </button>
-              <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
-                <List className="w-5 h-5" />
-              </button>
               <button
+                type="button"
                 onClick={handleLogout}
-                className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
+                className="min-h-11 min-w-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition touch-manipulation"
                 title="Logout"
+                aria-label="Logout"
               >
                 <User className="w-5 h-5" />
               </button>
@@ -387,34 +380,51 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-hidden px-4 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-4 h-full">
-            <section className="flex flex-col rounded-[32px] bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-[#E8EFED]">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  {userRole === 'admin' && (
-                    <button
-                      onClick={() => setIsAddItemOpen(true)}
-                      className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition"
-                    >
-                      + Add New Item
-                    </button>
-                  )}
-                  <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <p className="shrink-0 px-4 py-2 text-center text-xs font-medium text-[#4B6154] bg-[#E8F3EB] border-b border-[#D4E8DA] lg:hidden">
+          Rotate to landscape for products and checkout side by side
+        </p>
+
+        <div className="flex-1 min-h-0 overflow-hidden px-3 py-3 lg:px-4 lg:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div
+            className={`grid grid-cols-1 gap-3 lg:gap-4 h-full min-h-0 ${
+              isCheckoutOpen ? 'lg:grid-cols-[1fr_1fr]' : 'lg:grid-cols-[1.65fr_1fr]'
+            }`}
+          >
+            <section
+              className={`flex flex-col min-h-0 rounded-2xl lg:rounded-3xl bg-white shadow-sm overflow-hidden max-lg:max-h-[58dvh] ${
+                isCheckoutOpen ? 'lg:pointer-events-none lg:opacity-50' : ''
+              }`}
+            >
+              <div className="shrink-0 px-4 py-3 lg:px-5 lg:py-4 border-b border-[#E8EFED] space-y-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                  <CategoryTabBar
+                    tabs={categoryTabs}
+                    selectedId={selectedCategory}
+                    onSelect={setSelectedCategory}
+                  />
+                  <div className="relative w-full lg:max-w-xs lg:shrink-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     <Input
-                      type="text"
-                      placeholder="Search items here..."
+                      type="search"
+                      placeholder="Search items..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 h-12 rounded-2xl border border-[#E6ECE7] shadow-sm"
+                      className="w-full pl-10 h-11 lg:h-12 rounded-2xl border border-[#E6ECE7] shadow-sm text-base"
                     />
                   </div>
                 </div>
-
+                {userRole === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddItemOpen(true)}
+                    className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition touch-manipulation"
+                  >
+                    + Add New Item
+                  </button>
+                )}
               </div>
 
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 {loading ? (
                   <div className="flex items-center justify-center h-full p-10 text-gray-500">
                     Loading products...
@@ -434,56 +444,74 @@ export default function App() {
               </div>
             </section>
 
-            <section className="flex flex-col rounded-[32px] bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-[#E8EFED]">
-                <h2 className="text-xl font-semibold text-[#1E3D2D]">Checkout</h2>
-                <div className="mt-4 grid grid-cols-[2fr_1fr_1fr] gap-3 text-xs uppercase tracking-[0.18em] text-gray-500">
-                  <span>Name</span>
-                  <span className="text-center">Qty</span>
-                  <span className="text-right">Price</span>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                <PetCart
-                  items={cart}
-                  onUpdateQuantity={updateQuantity}
-                  onRemoveItem={removeFromCart}
-                />
-              </div>
-
-              <div className="border-t border-[#E8EFED] bg-[#F8FBF8] p-5">
-                <div className="grid gap-4">
-                  <div className="flex items-center justify-between text-base font-semibold text-[#1E8C5A]">
-                    <span>Total</span>
-                    <span>₱{subtotal.toFixed(2)}</span>
+            <section
+              className={`flex flex-col min-h-0 rounded-2xl lg:rounded-3xl bg-white shadow-sm overflow-hidden lg:min-h-0 ${
+                isCheckoutOpen ? 'max-lg:min-h-[52dvh] flex-1' : 'max-lg:min-h-[32dvh]'
+              }`}
+            >
+              {!isCheckoutOpen ? (
+                <>
+                  <div className="shrink-0 px-4 py-3 lg:px-5 lg:py-4 border-b border-[#E8EFED]">
+                    <h2 className="text-lg lg:text-xl font-semibold text-[#1E3D2D]">Checkout</h2>
+                    <div className="mt-3 lg:mt-4 grid grid-cols-[2fr_1fr_1fr] gap-3 text-xs uppercase tracking-[0.18em] text-gray-500">
+                      <span>Name</span>
+                      <span className="text-center">Qty</span>
+                      <span className="text-right">Price</span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    onClick={() => setCart([])}
-                    className="flex-1 rounded-2xl border border-[#E6ECE7] bg-white text-[#4B6154] hover:bg-[#F2F6F2]"
-                  >
-                    Cancel Order
-                  </Button>
-                  <Button
-                    onClick={handleCheckout}
-                    className="flex-1 rounded-2xl bg-[#1E8C5A] text-white hover:bg-[#166c44]"
-                  >
-                    Pay (₱{subtotal.toFixed(2)})
-                  </Button>
-                </div>
-              </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 lg:p-5 space-y-3">
+                    <PetCart
+                      items={cart}
+                      onUpdateQuantity={updateQuantity}
+                      onRemoveItem={removeFromCart}
+                    />
+                  </div>
 
+                  <div className="shrink-0 border-t border-[#E8EFED] bg-[#F8FBF8] p-4 lg:p-5">
+                    <div className="flex items-center justify-between text-base font-semibold text-[#1E8C5A]">
+                      <span>Total</span>
+                      <span>₱{subtotal.toFixed(2)}</span>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+                      <Button
+                        type="button"
+                        onClick={() => setCart([])}
+                        className="flex-1 min-h-12 rounded-2xl border border-[#E6ECE7] bg-white text-[#4B6154] hover:bg-[#F2F6F2] text-base touch-manipulation"
+                      >
+                        Cancel Order
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleCheckout}
+                        className="flex-1 min-h-12 rounded-2xl bg-[#1E8C5A] text-white hover:bg-[#166c44] text-base touch-manipulation"
+                      >
+                        {cartItemCount > 0
+                          ? `Pay (${cartItemCount}) · ₱${subtotal.toFixed(2)}`
+                          : `Pay · ₱${subtotal.toFixed(2)}`}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <PosCheckoutPanel
+                  open={isCheckoutOpen}
+                  items={cart}
+                  cashierId={cashierId || ''}
+                  onComplete={(method) => {
+                    completeCheckout(method);
+                    setIsCheckoutOpen(false);
+                  }}
+                  onCancel={() => setIsCheckoutOpen(false)}
+                />
+              )}
             </section>
           </div>
         </div>
 
         {/* Modals and helpers */}
         <BarcodeScanner isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScan={handleBarcodeScan} />
-
-        <PetCheckoutModal isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} items={cart} cashierId={cashierId || ''} onComplete={completeCheckout} />
 
         <UserLogin isOpen={isLoginOpen} onLogin={handleStaffLogin} isRequired={true} />
 
@@ -500,7 +528,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Main />} />
         <Route path="/inventory" element={<InventoryPage />} />
-        <Route path="/reports" element={<DashboardPage />} />
+        <Route path="/reports" element={<ReportDashboard />} />
         <Route path="/users" element={<div className="p-6">User Management (placeholder)</div>} />
       </Routes>
     </BrowserRouter>

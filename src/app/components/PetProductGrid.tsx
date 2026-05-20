@@ -13,7 +13,7 @@ export function PetProductGrid({ products, onAddToCart, onEditProduct, quickAddI
   const isLowStock = (product: Product) => product.stock <= (product.minStockLevel || 5);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 p-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 p-2 lg:p-3">
       {products.map((product) => {
         const lowStock = isLowStock(product);
         const quickAdd = isQuickAdd(product.id);
@@ -22,7 +22,7 @@ export function PetProductGrid({ products, onAddToCart, onEditProduct, quickAddI
           <button
             key={product.id}
             onClick={() => onAddToCart(product)}
-            className={`group bg-white rounded-2xl border p-3 hover:shadow-lg transition-all text-left relative overflow-hidden min-h-[170px] ${
+            className={`group bg-white rounded-2xl border p-3 hover:shadow-lg transition-all text-left relative overflow-hidden min-h-[150px] lg:min-h-[160px] touch-manipulation active:scale-[0.98] ${
               lowStock
                 ? 'border-red-300 ring-1 ring-red-200'
                 : quickAdd

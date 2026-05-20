@@ -2,6 +2,15 @@
 import { supabase } from '../../lib/supabase';
 import { Product } from '../types/pos';
 
+/** Stable sort for POS grid: name (case-insensitive), then id. */
+export function sortProductsStable(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const nameCmp = (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+    if (nameCmp !== 0) return nameCmp;
+    return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+  });
+}
+
 /**
  * Fetch all products from Supabase
  */
@@ -9,20 +18,23 @@ export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
     .select('id, barcode,name, price, cost, category, category_id, stock, min_stock_level') // Added category_id and barcode
-    .order('category');
+    .order('name', { ascending: true })
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('Error fetching products:', error);
     throw error;
   }
 
-  return data.map(item => ({
+  return sortProductsStable(
+    data.map(item => ({
     ...item,
     cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id, // Ensure category_id is mapped
     minStockLevel: item.min_stock_level || 0 // Default to 0 if undefined
-  })) as Product[];
+  })) as Product[],
+  );
 }
 
 /**
@@ -37,20 +49,23 @@ export async function fetchProductsByCategory(category: string): Promise<Product
     .from('products_with_categories')
     .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
     .eq('category', category)
-    .order('name');
+    .order('name', { ascending: true })
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('Error fetching products by category:', error);
     throw error;
   }
 
-  return data.map(item => ({
+  return sortProductsStable(
+    data.map(item => ({
     ...item,
     cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
-  })) as Product[];
+  })) as Product[],
+  );
 }
 
 /**
@@ -127,20 +142,24 @@ export async function searchProducts(query: string): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products_with_categories')
     .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
-    .or(`name.ilike.%${query}%,category.ilike.%${query}%`);
+    .or(`name.ilike.%${query}%,category.ilike.%${query}%`)
+    .order('name', { ascending: true })
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('Error searching products:', error);
     throw error;
   }
 
-  return data.map(item => ({
+  return sortProductsStable(
+    data.map(item => ({
     ...item,
     cost: item.cost,
     barcode: item.barcode,
     category_id: item.category_id,
     minStockLevel: item.min_stock_level ?? 0
-  })) as Product[];
+  })) as Product[],
+  );
 }
 
 /**
@@ -151,7 +170,9 @@ export async function getLowStockItems(threshold: number = 20): Promise<Product[
     .from('products_with_categories')
     .select('id, barcode, name, price, cost, category, category_id, stock, min_stock_level')
     .lt('stock', threshold)
-    .order('stock');
+    .order('stock', { ascending: true })
+    .order('name', { ascending: true })
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('Error fetching low stock items:', error);

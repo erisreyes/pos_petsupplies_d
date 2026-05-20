@@ -46,7 +46,7 @@ export function PetCart({
           {items.map((item) => (
             <div
               key={item.product.id}
-              className="flex items-center justify-between text-sm px-1 py-2 border-b border-[#F0F0F0] last:border-b-0"
+              className="flex items-center justify-between text-sm px-1 py-2.5 border-b border-[#F0F0F0] last:border-b-0"
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 
@@ -54,20 +54,24 @@ export function PetCart({
               </div>
               
               <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
+                    type="button"
                     onClick={() => onUpdateQuantity(item.product.id, -1)}
                     disabled={item.quantity <= 1}
-                    className="w-6 h-6 rounded-full border border-[#7BA886] flex items-center justify-center hover:bg-[#7BA886] hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-xs"
+                    className="min-h-11 min-w-11 rounded-full border border-[#7BA886] flex items-center justify-center hover:bg-[#7BA886] hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+                    aria-label={`Decrease ${item.product.name} quantity`}
                   >
-                    <Minus className="w-3 h-3" />
+                    <Minus className="w-4 h-4" />
                   </button>
-                  <span className="w-5 text-center font-semibold text-xs">{item.quantity}</span>
+                  <span className="min-w-8 text-center font-semibold text-sm tabular-nums">{item.quantity}</span>
                   <button
+                    type="button"
                     onClick={() => onUpdateQuantity(item.product.id, 1)}
-                    className="w-6 h-6 rounded-full border border-[#7BA886] bg-[#7BA886] text-white flex items-center justify-center hover:bg-[#5A8A6B] transition-colors text-xs"
+                    className="min-h-11 min-w-11 rounded-full border border-[#7BA886] bg-[#7BA886] text-white flex items-center justify-center hover:bg-[#5A8A6B] transition-colors touch-manipulation"
+                    aria-label={`Increase ${item.product.name} quantity`}
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
                 
@@ -77,10 +81,12 @@ export function PetCart({
 
                 <div>
                 <button
+                  type="button"
                   onClick={() => onRemoveItem(item.product.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                  className="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 touch-manipulation"
+                  aria-label={`Remove ${item.product.name}`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
                 </div>
               </div>

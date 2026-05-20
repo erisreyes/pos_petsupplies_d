@@ -7,9 +7,25 @@ interface PetTransactionHistoryProps {
 }
 
 export function PetTransactionHistory({ transactions }: PetTransactionHistoryProps) {
+  const formatPaymentMethod = (method: string) => {
+    switch (method) {
+      case 'cash':
+        return 'Cash';
+      case 'cashless':
+        return 'Cashless (GCash / Maya)';
+      case 'card':
+        return 'Card';
+      case 'mobile':
+        return 'Mobile';
+      default:
+        return method;
+    }
+  };
+
   const getPaymentIcon = (method: string) => {
     switch (method) {
       case 'cash': return Banknote;
+      case 'cashless': return Smartphone;
       case 'card': return CreditCard;
       case 'mobile': return Smartphone;
       default: return CreditCard;
@@ -19,6 +35,7 @@ export function PetTransactionHistory({ transactions }: PetTransactionHistoryPro
   const getPaymentColor = (method: string) => {
     switch (method) {
       case 'cash': return 'bg-[#7BA886]';
+      case 'cashless': return 'bg-[#0D9488]';
       case 'card': return 'bg-[#6B9BD1]';
       case 'mobile': return 'bg-[#D4866A]';
       default: return 'bg-gray-500';
@@ -83,8 +100,8 @@ export function PetTransactionHistory({ transactions }: PetTransactionHistoryPro
                     <div className="font-bold text-xl text-[#7BA886]">
                       ₱{transaction.total.toFixed(2)}
                     </div>
-                    <div className="text-xs text-gray-500 capitalize mt-1">
-                      {transaction.paymentMethod}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formatPaymentMethod(transaction.paymentMethod)}
                     </div>
                   </div>
                 </div>

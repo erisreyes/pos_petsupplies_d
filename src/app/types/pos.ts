@@ -20,9 +20,9 @@ export interface Transaction {
   id: string;
   items: CartItem[];
   total: number;
-  paymentMethod: 'cash' | 'card' | 'mobile';
+  paymentMethod: 'cash' | 'cashless' | 'card' | 'mobile';
   timestamp: Date;
   status: 'completed' | 'refunded';
 }
 
-export type PaymentMethod = 'cash' | 'card' | 'mobile';
+export type PaymentMethod = 'cash' | 'cashless' | 'card' | 'mobile';

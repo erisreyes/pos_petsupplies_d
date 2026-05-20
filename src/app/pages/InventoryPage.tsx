@@ -176,7 +176,7 @@ export default function InventoryPage() {
                           : 'text-gray-700 hover:bg-[#F8FAF8]'
                       }`}
                     >
-                      Sales Reports
+                      Sales Report Dashboard
                     </button>
 
                     <button
@@ -230,6 +230,8 @@ export default function InventoryPage() {
           </div>
         </div>
       </header>
+
+      
 
       <div className="flex-1 overflow-hidden px-4 py-4">
         <div className="p-6 h-full bg-white rounded-[20px] shadow-sm overflow-hidden flex flex-col">
