@@ -1,5 +1,6 @@
 import { Camera } from 'lucide-react';
 import { LogoutButton } from './LogoutButton';
+import { NetworkStatusBadge } from './NetworkStatusBadge';
 import { cn } from './ui/utils';
 
 export type PosStaffBarProps = {
@@ -7,9 +8,16 @@ export type PosStaffBarProps = {
   logoutWarning?: string;
   onScanClick?: () => void;
   safeAreaTop?: boolean;
+  showNetworkBadge?: boolean;
 };
 
-export function PosStaffBar({ onLogout, logoutWarning, onScanClick, safeAreaTop }: PosStaffBarProps) {
+export function PosStaffBar({
+  onLogout,
+  logoutWarning,
+  onScanClick,
+  safeAreaTop,
+  showNetworkBadge = false,
+}: PosStaffBarProps) {
   return (
     <header
       className={cn(
@@ -29,6 +37,8 @@ export function PosStaffBar({ onLogout, logoutWarning, onScanClick, safeAreaTop 
         </div>
 
         <div className="flex items-center gap-2">
+          {showNetworkBadge && <NetworkStatusBadge />}
+
           {onScanClick && (
             <button
               type="button"

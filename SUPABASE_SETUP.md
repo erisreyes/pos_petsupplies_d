@@ -63,7 +63,7 @@ This is typically part of a Mobile POS (Point of Sale) application setup guide t
 ## Usage
 
 ### Authentication
-The `MemberLogin` component now supports:
+The login component now supports:
 - **Phone Login**: Quick lookup with mock data
 - **Email/Password**: Supabase authentication
 
@@ -171,9 +171,9 @@ const { error } = await supabase
 
 ## Key Files
 
-- `src/lib/supabase.ts` - Supabase client initialization
-- `.env.local` - Environment variables (never commit to git)
-- `src/app/components/MemberLogin.tsx` - Updated with Supabase auth
+-- `src/lib/supabase.ts` - Supabase client initialization
+-- `.env.local` - Environment variables (never commit to git)
+-- `src/app/components/UserLogin.tsx` - Updated with Supabase auth
 
 ## Security Notes
 
@@ -187,3 +187,35 @@ const { error } = await supabase
 2. Set up Supabase Realtime for live updates
 3. Implement membership features using authenticated sessions
 4. Add RLS policies for data protection
+
+## Hard delete products (keep transaction history)
+
+If you want to **hard-delete rows from `products`** even when they appear in past sales, you must remove the foreign key:
+`transaction_items.product_id → products.id`.
+
+Run this in Supabase **SQL Editor**:
+
+```sql
+BEGIN;
+
+ALTER TABLE public.transaction_items
+  DROP CONSTRAINT IF EXISTS transaction_items_product_id_fkey;
+
+CREATE INDEX IF NOT EXISTS idx_transaction_items_product_id
+  ON public.transaction_items(product_id);
+
+COMMIT;
+```
+
+This keeps old `transaction_items` rows (with `product_name`, `unit_price`, etc.) intact while allowing products to be deleted from the catalog.
+
+## Offline POS sync (required for offline sales upload)
+
+Before using offline checkout sync on iPad, run `supabase-offline-migration.sql` in the SQL Editor. This adds:
+
+- `transactions.client_sale_id` (UUID, unique) — idempotent replay of offline sales
+- `transactions.source` — `pos_online` | `pos_offline`
+
+Ensure authenticated staff can `INSERT` on `transactions` and `transaction_items`, and `EXECUTE` the `decrement_stock` RPC.
+
+**Client modules:** `src/app/offline/` (Dexie IndexedDB), `src/app/services/checkoutService.ts`, `src/app/offline/syncEngine.ts`, `src/app/context/ConnectivityContext.tsx`.

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { CartItem, PaymentMethod } from '../types/pos';
 import { CheckCircle, ArrowLeft, Delete } from 'lucide-react';
 import { Button } from './ui/button';
-import { supabase } from '../../lib/supabase';
+import { useConnectivity } from '../context/ConnectivityContext';
+import { completeSale } from '../services/checkoutService';
 import { cn } from './ui/utils';
 
 const GREEN = '#15803d';
@@ -78,7 +79,10 @@ export type PosCheckoutPanelProps = {
   items: CartItem[];
   cashierId: string;
   branch?: string;
-  onComplete: (paymentMethod: PaymentMethod) => void;
+  onComplete: (
+    paymentMethod: PaymentMethod,
+    receipt: { txnNumber: string; change: number; offline?: boolean },
+  ) => void;
   onCancel: () => void;
 };
 
@@ -90,6 +94,7 @@ export function PosCheckoutPanel({
   onComplete,
   onCancel,
 }: PosCheckoutPanelProps) {
+  const { isOnline, refreshOutboxCounts } = useConnectivity();
   const [step, setStep] = useState<CheckoutStep>('choose-payment');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [tenderedCents, setTenderedCents] = useState(0);
@@ -158,70 +163,6 @@ export function PosCheckoutPanel({
     setTenderedCents((c) => c + toCents(bill));
   };
 
-  const processPayment = async (method: PaymentMethod) => {
-    const txnNumber = `TXN-${Date.now()}`;
-
-    let amountTendered: number | null = null;
-    let changeAmount: number | null = null;
-
-    if (method === 'cash') {
-      if (tenderedCents < totalCents) {
-        throw new Error('Amount tendered must be at least the total due.');
-      }
-      amountTendered = tenderedCents / 100;
-      changeAmount = (tenderedCents - totalCents) / 100;
-    } else if (method === 'cashless') {
-      amountTendered = total;
-      changeAmount = 0;
-    }
-
-    const { data: txn, error: txnErr } = await supabase
-      .from('transactions')
-      .insert({
-        transaction_number: txnNumber,
-        cashier_id: cashierId,
-        member_id: null,
-        branch: branch ?? null,
-        subtotal,
-        discount_amount: 0,
-        tax_amount: 0,
-        total_amount: total,
-        amount_tendered: amountTendered,
-        change_amount: changeAmount,
-        payment_method: method,
-        payment_status: 'completed',
-      })
-      .select()
-      .single();
-
-    if (txnErr) throw new Error(txnErr.message || 'Unable to save transaction.');
-
-    const lineItems = items.map((item) => ({
-      transaction_id: txn.id,
-      product_id: item.product.id,
-      product_name: item.product.name,
-      unit_price: item.product.price,
-      cost_price: item.product.cost ?? 0,
-      quantity: item.quantity,
-      discount_amount: 0,
-      subtotal: item.product.price * item.quantity,
-    }));
-
-    const { error: itemsErr } = await supabase.from('transaction_items').insert(lineItems);
-
-    if (itemsErr) throw new Error(itemsErr.message || 'Unable to save transaction items.');
-
-    for (const item of items) {
-      const { error: stockErr } = await supabase.rpc('decrement_stock', {
-        p_product_id: item.product.id,
-        p_quantity: item.quantity,
-      });
-      if (stockErr) throw new Error(`Stock update failed: ${stockErr.message}`);
-    }
-
-    return { txnNumber, change: changeAmount ?? 0 };
-  };
-
   const handlePayment = async () => {
     if (!selectedMethod || (selectedMethod !== 'cash' && selectedMethod !== 'cashless')) {
       setError('Select a payment method.');
@@ -238,12 +179,23 @@ export function PosCheckoutPanel({
     setError(null);
 
     try {
-      const receipt = await processPayment(selectedMethod);
+      const receipt = await completeSale({
+        items,
+        cashierId,
+        branch,
+        paymentMethod: selectedMethod,
+        tenderedCents,
+        totalCents,
+        subtotal,
+        total,
+        isOnline,
+      });
+      await refreshOutboxCounts();
       setReceiptData(receipt);
       setIsComplete(true);
 
       setTimeout(() => {
-        onComplete(selectedMethod);
+        onComplete(selectedMethod, receipt);
       }, 2500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';

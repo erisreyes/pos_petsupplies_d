@@ -12,6 +12,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from './ui/drawer';
+import { NetworkStatusBadge } from './NetworkStatusBadge';
 import { cn } from './ui/utils';
 
 export type AppHeaderProps = {
@@ -22,6 +23,7 @@ export type AppHeaderProps = {
   logoutWarning?: string;
   onScanClick?: () => void;
   safeAreaTop?: boolean;
+  showNetworkBadge?: boolean;
 };
 
 export function AppHeader({
@@ -30,6 +32,7 @@ export function AppHeader({
   logoutWarning,
   onScanClick,
   safeAreaTop,
+  showNetworkBadge = false,
 }: AppHeaderProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -112,6 +115,8 @@ export function AppHeader({
         </div>
 
         <div className="flex items-center gap-2">
+          {showNetworkBadge && <NetworkStatusBadge />}
+
           {onScanClick && (
             <button
               type="button"

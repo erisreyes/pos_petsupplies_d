@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ConnectivityProvider } from './context/ConnectivityContext';
 import { StaffRestrictedRoute } from './components/StaffRestrictedRoute';
 import PosPage from './pages/PosPage';
 import InventoryPage from './pages/InventoryPage';
@@ -10,6 +11,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ConnectivityProvider>
         <Routes>
           <Route path="/" element={<PosPage />} />
           <Route
@@ -37,6 +39,7 @@ export default function App() {
             }
           />
         </Routes>
+        </ConnectivityProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1,13 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Product, CartItem, Transaction, PaymentMethod } from '../types/pos';
 import { quickAddItems } from '../data/pet-products';
-import { fetchProducts, fetchProductById } from '../services/productService';
+import { fetchProductById } from '../services/productService';
 import {
-  applyProductOrder,
-  loadProductOrder,
   mergeVisibleReorder,
   saveProductOrder,
 } from '../lib/productOrder';
+import {
+  getCachedProductByBarcode,
+  getCachedProducts,
+  loadProductsForPos,
+} from '../offline/productRepository';
+import { posDb } from '../offline/db';
+import type { CheckoutReceipt } from '../offline/types';
 import { CategoryTabBar } from '../components/CategoryTabBar';
 import { PetProductGrid } from '../components/PetProductGrid';
 import { PetCart } from '../components/PetCart';
@@ -19,6 +24,7 @@ import { PosStaffBar } from '../components/PosStaffBar';
 import { AddItemModal } from '../components/AddItemModal';
 import { UpdateItemModal } from '../components/UpdateItemModal';
 import { useAuth } from '../context/AuthContext';
+import { useConnectivity } from '../context/ConnectivityContext';
 import { isAdmin, isStaff } from '../constants/roles';
 import { Search } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -26,8 +32,28 @@ import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
 import { Toaster } from '../components/ui/sonner';
 
+const LEGACY_TXN_KEY = 'pet-pos-transactions';
+
+async function loadSessionTransactions(): Promise<Transaction[]> {
+  const rows = await posDb.outbox_sales
+    .orderBy('createdAt')
+    .reverse()
+    .limit(50)
+    .toArray();
+
+  return rows.map((sale) => ({
+    id: sale.id,
+    items: sale.payload.cartSnapshot,
+    total: sale.payload.header.total_amount,
+    paymentMethod: sale.payload.header.payment_method,
+    timestamp: new Date(sale.createdAt),
+    status: 'completed' as const,
+  }));
+}
+
 export default function PosPage() {
   const { cashierId, userRole, setCashierId, setUserRole, authLoading, signOut } = useAuth();
+  const { isOnline, isOffline, refreshOutboxCounts } = useConnectivity();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -42,21 +68,32 @@ export default function PosPage() {
   const [isUpdateItemOpen, setIsUpdateItemOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
 
-  const loadProducts = async () => {
+  const reloadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchProducts();
-      const order = loadProductOrder();
-      setProducts(applyProductOrder(data, order));
+      const { products: data, fromCache } = await loadProductsForPos(isOnline);
+      setProducts(data);
+      if (fromCache && isOffline) {
+        toast.info('Using offline product catalog');
+      }
     } catch (error) {
       console.error('Failed to load products:', error);
-      toast.error('Failed to load products from database');
+      const cached = await getCachedProducts();
+      if (cached.length > 0) {
+        setProducts(cached);
+        toast.warning('Showing cached products');
+      } else {
+        toast.error(
+          isOffline
+            ? 'No offline catalog. Connect to download products.'
+            : 'Failed to load products from database',
+        );
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [isOnline, isOffline]);
 
-  // Load products after auth session is ready (avoids RLS/session race)
   useEffect(() => {
     if (authLoading) return;
 
@@ -65,15 +102,17 @@ export default function PosPage() {
     const run = async () => {
       try {
         setLoading(true);
-        const data = await fetchProducts();
-        if (!cancelled) {
-          const order = loadProductOrder();
-          setProducts(applyProductOrder(data, order));
-        }
+        const { products: data } = await loadProductsForPos(isOnline);
+        if (!cancelled) setProducts(data);
       } catch (error) {
         if (!cancelled) {
           console.error('Failed to load products:', error);
-          toast.error('Failed to load products from database');
+          const cached = await getCachedProducts();
+          if (cached.length > 0) {
+            setProducts(cached);
+          } else {
+            toast.error('Failed to load products');
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -84,7 +123,7 @@ export default function PosPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, cashierId]);
+  }, [authLoading, cashierId, isOnline]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -93,24 +132,9 @@ export default function PosPage() {
   }, [cashierId, authLoading]);
 
   useEffect(() => {
-    const savedTransactions = localStorage.getItem('pet-pos-transactions');
-
-    if (savedTransactions) {
-      const parsed = JSON.parse(savedTransactions);
-      setTransactions(
-        parsed.map((t: Transaction & { timestamp: string }) => ({
-          ...t,
-          timestamp: new Date(t.timestamp),
-        })),
-      );
-    }
+    void loadSessionTransactions().then(setTransactions);
+    localStorage.removeItem(LEGACY_TXN_KEY);
   }, []);
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      localStorage.setItem('pet-pos-transactions', JSON.stringify(transactions));
-    }
-  }, [transactions]);
 
   const categoryTabs = [
     { id: 'all', name: 'All' },
@@ -164,7 +188,15 @@ export default function PosPage() {
 
   const handleBarcodeScan = async (barcode: string) => {
     try {
-      const product = await fetchProductById(barcode);
+      let product: Product | null = null;
+
+      if (isOnline) {
+        product = await fetchProductById(barcode);
+      }
+      if (!product) {
+        product = await getCachedProductByBarcode(barcode);
+      }
+
       if (product) {
         addToCart(product);
         toast.success('Scanned successfully!', { description: product.name, icon: '✅' });
@@ -178,8 +210,20 @@ export default function PosPage() {
   };
 
   const openEditProduct = (product: Product) => {
+    if (isOffline) {
+      toast.error('Editing products requires an internet connection');
+      return;
+    }
     setProductToEdit(product);
     setIsUpdateItemOpen(true);
+  };
+
+  const openAddItem = () => {
+    if (isOffline) {
+      toast.error('Adding products requires an internet connection');
+      return;
+    }
+    setIsAddItemOpen(true);
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -205,6 +249,10 @@ export default function PosPage() {
       toast.error('Cart is empty');
       return;
     }
+    if (!cashierId) {
+      toast.error('Sign in to complete checkout');
+      return;
+    }
     setIsCheckoutOpen(true);
   };
 
@@ -213,14 +261,17 @@ export default function PosPage() {
     setUserRole(member.role);
     setIsLoginOpen(false);
     toast.success(`Welcome, ${member.name}`);
-    void loadProducts();
+    void reloadProducts();
   };
 
-  const completeCheckout = (paymentMethod: PaymentMethod) => {
+  const completeCheckout = async (
+    paymentMethod: PaymentMethod,
+    receipt: CheckoutReceipt,
+  ) => {
     const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
     const transaction: Transaction = {
-      id: Date.now().toString(),
+      id: receipt.clientSaleId ?? receipt.txnNumber,
       items: [...cart],
       total: subtotal,
       paymentMethod,
@@ -229,9 +280,21 @@ export default function PosPage() {
     };
 
     setTransactions((prev) => [transaction, ...prev]);
-    toast.success('Transaction completed!', { icon: '✅' });
     setCart([]);
     setIsCheckoutOpen(false);
+
+    const cached = await getCachedProducts();
+    setProducts(cached);
+    await refreshOutboxCounts();
+
+    if (receipt.offline) {
+      toast.success('Sale saved offline', {
+        description: `${receipt.txnNumber} will sync when online`,
+        icon: '✅',
+      });
+    } else {
+      toast.success('Transaction completed!', { icon: '✅' });
+    }
   };
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -263,6 +326,7 @@ export default function PosPage() {
           logoutWarning={logoutWarning}
           onScanClick={() => setIsScannerOpen(true)}
           safeAreaTop
+          showNetworkBadge
         />
       ) : (
         <AppHeader
@@ -270,7 +334,14 @@ export default function PosPage() {
           logoutWarning={logoutWarning}
           onScanClick={() => setIsScannerOpen(true)}
           safeAreaTop
+          showNetworkBadge
         />
+      )}
+
+      {isOffline && (
+        <p className="shrink-0 px-4 py-2 text-center text-xs font-medium text-amber-900 bg-amber-50 border-b border-amber-200">
+          Offline mode — sales are saved locally and will sync when connection returns
+        </p>
       )}
 
       <p className="shrink-0 px-4 py-2 text-center text-xs font-medium text-[#4B6154] bg-[#E8F3EB] border-b border-[#D4E8DA] lg:hidden">
@@ -309,8 +380,9 @@ export default function PosPage() {
               {isAdmin(userRole) && (
                 <button
                   type="button"
-                  onClick={() => setIsAddItemOpen(true)}
-                  className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition touch-manipulation"
+                  onClick={openAddItem}
+                  className="text-sm font-semibold text-[#1E8C5A] hover:text-[#166c44] transition touch-manipulation disabled:opacity-50"
+                  disabled={isOffline}
                 >
                   + Add New Item
                 </button>
@@ -393,9 +465,8 @@ export default function PosPage() {
                 open={isCheckoutOpen}
                 items={cart}
                 cashierId={cashierId || ''}
-                onComplete={(method) => {
-                  completeCheckout(method);
-                  setIsCheckoutOpen(false);
+                onComplete={(method, receipt) => {
+                  void completeCheckout(method, receipt);
                 }}
                 onCancel={() => setIsCheckoutOpen(false)}
               />
@@ -415,7 +486,7 @@ export default function PosPage() {
       <AddItemModal
         isOpen={isAddItemOpen}
         onClose={() => setIsAddItemOpen(false)}
-        onProductAdded={loadProducts}
+        onProductAdded={reloadProducts}
       />
 
       <UpdateItemModal
@@ -426,7 +497,7 @@ export default function PosPage() {
         }}
         product={productToEdit}
         onProductUpdated={() => {
-          loadProducts();
+          void reloadProducts();
           setIsUpdateItemOpen(false);
           setProductToEdit(null);
         }}
