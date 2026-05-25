@@ -31,7 +31,7 @@ function useBranchHelpMode(): 'tooltip' | 'popover' {
 }
 
 const MODULE_HELP =
-  'Totals match the rest of this dashboard for the selected period. Rows group completed sales by the branch on each cashier profile (transactions.cashier_id → profiles.id → profiles.branch). Sales and averages use the same amounts as elsewhere; only the grouping dimension is branch.';
+  'Totals match the rest of this dashboard for the selected period.';
 
 function BranchHelpHint({ mode }: { mode: 'tooltip' | 'popover' }) {
   const btnClass =
@@ -89,10 +89,6 @@ export default function BranchTable({
             <h4 className="font-semibold text-gray-700">Branch performance</h4>
             <BranchHelpHint mode={helpMode} />
           </div>
-          <p className="text-xs text-gray-500 mt-1 leading-snug">
-            Grouped by <span className="font-medium text-gray-600">profiles.branch</span> for each sale&apos;s
-            cashier. Unassigned = missing profile link or blank branch.
-          </p>
         </div>
       </div>
 

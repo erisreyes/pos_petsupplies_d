@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
-import { User, Briefcase } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Briefcase, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { supabase } from '../../lib/supabase';
+import { cn } from './ui/utils';
 
 export interface Member {
   id: string;
@@ -19,52 +26,50 @@ interface UserLoginProps {
   isRequired?: boolean;
 }
 
+const touchInputClass =
+  'mt-2 min-h-12 rounded-2xl border-[#D4E8DA] bg-white text-base shadow-sm focus-visible:border-[#1E8C5A] focus-visible:ring-[#1E8C5A]/25 touch-manipulation';
+
+const fieldLabelClass = 'text-base font-semibold text-[#2C3E2E]';
+
 export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: UserLoginProps) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userInfo, setUserInfo] = useState({
-    fullName: '',
-    role: ''
-  });
 
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const user = (await supabase.auth.getUser()).data.user;
-        if (user) {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('full_name, role')
-            .eq('id', user.id)
-            .single();
+  const handleOpenChange = (open: boolean) => {
+    if (!open && !isRequired && onClose) {
+      onClose();
+    }
+  };
 
-          if (error) {
-            console.error('Error fetching user info:', error);
-          } else {
-            setUserInfo({
-              fullName: data.full_name || 'Unknown',
-              role: data.role || 'Unknown'
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching user info:', err);
-      }
-    };
-
-    fetchUserInfo();
-  }, []);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
+      const trimmedUsername = username.trim();
+      const { data: profileLookup, error: lookupError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('username', trimmedUsername)
+        .maybeSingle();
+
+      if (lookupError) {
+        setError('Unable to verify username. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!profileLookup?.email) {
+        setError('Username not found. Please check your credentials and try again.');
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: profileLookup.email,
         password,
       });
 
@@ -84,7 +89,7 @@ export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: User
         const member = profileData
           ? {
               id: profileData.id,
-              name: profileData.full_name || email.split('@')[0],
+              name: profileData.full_name || trimmedUsername,
               role: profileData.role || 'staff',
               phone: profileData.phone || '',
             }
@@ -103,7 +108,7 @@ export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: User
         }
 
         onLogin(member);
-        setEmail('');
+        setUsername('');
         setPassword('');
       }
     } catch (err) {
@@ -114,60 +119,100 @@ export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: User
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={!isRequired ? onClose : undefined}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={isRequired ? (e) => e.preventDefault() : undefined}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-[#7BA886]" />
-            Staff Portal
-          </DialogTitle>
-          <p className="text-xs text-gray-500 mt-1">Internal system - Staff only</p>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className={cn(
+          'flex w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-3xl border-[#D4E8DA] bg-[#F4F8F3] p-0 shadow-xl',
+          'top-[max(1rem,env(safe-area-inset-top))] left-1/2 max-h-[min(90dvh,640px)] -translate-x-1/2 translate-y-0',
+          'sm:max-w-md md:max-w-lg',
+          '[&>button]:hidden',
+        )}
+        onPointerDownOutside={isRequired ? (e) => e.preventDefault() : undefined}
+        onEscapeKeyDown={isRequired ? (e) => e.preventDefault() : undefined}
+      >
+        <DialogHeader className="shrink-0 border-b border-[#D4E8DA] bg-[#1E8C5A] px-5 py-5 text-left text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1 pr-2">
+              <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-white">
+                <Briefcase className="h-5 w-5 shrink-0 text-white/90" aria-hidden />
+                Staff Portal
+              </DialogTitle>
+              <DialogDescription className="text-sm text-white/85">
+                Sign in with your username and password to continue.
+              </DialogDescription>
+            </div>
+            {!isRequired && onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-11 min-w-11 shrink-0 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition touch-manipulation"
+                aria-label="Close login"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block mb-2 text-sm font-medium">
-              Email:
-            </label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="staff@minosteppetsupplies.com"
-              className="h-12"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block mb-2 text-sm font-medium">
-              Password:
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="h-12"
-            />
-          </div>
-
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-
-          <Button
-            type="submit"
-            disabled={isLoading || !email || !password}
-            className="w-full bg-[#7BA886] hover:bg-[#5A8A6B] text-white h-12"
+        <form onSubmit={handleLogin} className="flex min-h-0 flex-1 flex-col">
+          <div
+            className="flex-1 overflow-y-auto overscroll-contain px-5 py-6 space-y-5 scroll-pb-32"
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            {isLoading ? 'Authenticating...' : 'Login'}
-          </Button>
-        </form>
+            <div>
+              <label htmlFor="username" className={fieldLabelClass}>
+                Username
+              </label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                className={touchInputClass}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                enterKeyHint="next"
+              />
+            </div>
 
-        <div className="profile-info">
-          <p>{userInfo.fullName}</p>
-          <p>{userInfo.role}</p>
-        </div>
+            <div>
+              <label htmlFor="password" className={fieldLabelClass}>
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className={touchInputClass}
+                autoComplete="current-password"
+                enterKeyHint="go"
+              />
+            </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+              >
+                {error}
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-[#D4E8DA] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Button
+              type="submit"
+              disabled={isLoading || !username.trim() || !password}
+              className="min-h-12 w-full rounded-2xl bg-[#1E8C5A] text-base font-semibold text-white hover:bg-[#166c44] touch-manipulation"
+            >
+              {isLoading ? 'Authenticating...' : 'Login'}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

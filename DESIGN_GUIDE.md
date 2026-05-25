@@ -301,11 +301,10 @@ slideUp: translateY(20px) → translateY(0)
 
 ### Core Components
 1. **PetProductGrid** - Product catalog with quick-add
-2. **PetCart** - Sliding drawer cart with member info
-3. **PetCheckoutModal** - Payment selection dialog
+2. **PetCart** - Sliding drawer cart
+3. **PosCheckoutPanel** - Full-column checkout (tablet split-screen) with payment selection and tender keypad
 4. **BarcodeScanner** - Full-screen scanner overlay
-5. **MemberLogin** - Quick login modal
-6. **PetTransactionHistory** - Sales history list
+5. **PetTransactionHistory** - Sales history list
 
 ### UI Primitives
 - Button (sage green primary, outline variants)
@@ -344,7 +343,7 @@ Member: {
   name: string;
   phone: string;
   petName?: string;
-  loyaltyPoints: number;
+  
 }
 
 Transaction: {

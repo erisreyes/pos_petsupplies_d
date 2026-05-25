@@ -1,18 +1,54 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { AddItemModal } from '../components/AddItemModal';
 import { UpdateItemModal } from '../components/UpdateItemModal';
 import { Button } from '../components/ui/button';
-import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '../components/ui/drawer';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import { AppHeader } from '../components/AppHeader';
 import { Toaster } from '../components/ui/sonner';
+import { cn } from '../components/ui/utils';
 import { deleteProduct, fetchProducts } from '../services/productService';
 import { Product } from '../types/pos';
-import { supabase } from '../../lib/supabase';
-import { Camera, List, Menu, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+
+const LOW_STOCK_THRESHOLD = 15;
+const CRITICAL_STOCK_THRESHOLD = 5;
+
+function StockCell({ stock }: { stock: number }) {
+  if (stock > LOW_STOCK_THRESHOLD) {
+    return <span>{stock}</span>;
+  }
+
+  const isCritical = stock <= CRITICAL_STOCK_THRESHOLD;
+
+  return (
+    <span
+      className={cn(
+        'inline-flex min-w-[2rem] items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        isCritical
+          ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
+          : 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+      )}
+      title={isCritical ? 'Critical — restock soon' : 'Low stock — consider restocking'}
+    >
+      {stock}
+    </span>
+  );
+}
 
 export default function InventoryPage() {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +58,8 @@ export default function InventoryPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
-  const [drawerSection, setDrawerSection] = useState<'pos' | 'inventory' | 'reports' | 'users'>('inventory');
-
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -43,12 +79,8 @@ export default function InventoryPage() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn('Supabase sign out failed:', err);
-    }
-    toast.success('Logged out successfully');
+    await signOut();
+    toast.success('Signed out successfully');
     navigate('/');
   };
 
@@ -89,19 +121,27 @@ export default function InventoryPage() {
     setIsUpdateOpen(true);
   };
 
-  const handleQuickDelete = async (p: Product) => {
-    const ok = window.confirm(`Delete "${p.name}"? This can’t be undone.`);
-    if (!ok) return;
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
 
+    setIsDeleting(true);
     try {
-      await deleteProduct(p.id);
-      toast.success('Deleted product', { description: p.name });
+      await deleteProduct(productToDelete.id);
+      toast.success('Deleted product', { description: productToDelete.name });
+      setProductToDelete(null);
       await load();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to delete product:', err);
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message?: string }).message ?? '')
+          : '';
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? String((err as { code?: string }).code ?? '')
+          : '';
       const isFkViolation =
-        err?.code === '23503' ||
-        String(err?.message ?? '').toLowerCase().includes('foreign key constraint');
+        code === '23503' || message.toLowerCase().includes('foreign key constraint');
 
       if (isFkViolation) {
         toast.error('Unable to delete product', {
@@ -111,7 +151,11 @@ export default function InventoryPage() {
         return;
       }
 
-      toast.error('Failed to delete product', { description: err?.message || 'Unknown error' });
+      toast.error('Failed to delete product', {
+        description: message || 'Unknown error',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -119,119 +163,7 @@ export default function InventoryPage() {
     <div className="h-screen flex flex-col bg-[#F4F8F3]">
       <Toaster richColors />
 
-      <header className="bg-[#1E8C5A] text-white shadow-lg">
-        <div className="px-4 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Drawer direction="left">
-              <DrawerTrigger asChild>
-                <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
-                  <Menu className="w-5 h-5" />
-                </button>
-              </DrawerTrigger>
-
-              <DrawerContent className="bg-white">
-                <DrawerHeader>
-                  <DrawerTitle>Menu</DrawerTitle>
-                  <p className="text-sm text-gray-500">Quick navigation</p>
-                </DrawerHeader>
-
-                <div className="px-4 pb-4">
-                  <nav className="space-y-2">
-                    <button
-                      onClick={() => {
-                        setDrawerSection('pos');
-                        navigate('/');
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${
-                        drawerSection === 'pos'
-                          ? 'bg-[#E7F7EE] text-[#1E8C5A]'
-                          : 'text-gray-700 hover:bg-[#F8FAF8]'
-                      }`}
-                    >
-                      Point of Sale
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setDrawerSection('inventory');
-                        navigate('/inventory');
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${
-                        drawerSection === 'inventory'
-                          ? 'bg-[#E7F7EE] text-[#1E8C5A]'
-                          : 'text-gray-700 hover:bg-[#F8FAF8]'
-                      }`}
-                    >
-                      Inventory Management
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setDrawerSection('reports');
-                        navigate('/reports');
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${
-                        drawerSection === 'reports'
-                          ? 'bg-[#E7F7EE] text-[#1E8C5A]'
-                          : 'text-gray-700 hover:bg-[#F8FAF8]'
-                      }`}
-                    >
-                      Sales Report Dashboard
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setDrawerSection('users');
-                        navigate('/users');
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg font-semibold ${
-                        drawerSection === 'users'
-                          ? 'bg-[#E7F7EE] text-[#1E8C5A]'
-                          : 'text-gray-700 hover:bg-[#F8FAF8]'
-                      }`}
-                    >
-                      User Management
-                    </button>
-
-                    <div className="mt-3">
-                      <DrawerClose asChild>
-                        <button className="w-full rounded-2xl border border-[#E8DFD0] bg-[#F5F7F3] py-3 text-sm font-semibold text-[#2C3E2E]">
-                          Close
-                        </button>
-                      </DrawerClose>
-                    </div>
-                  </nav>
-                </div>
-              </DrawerContent>
-            </Drawer>
-            <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center">
-              <span className="text-2xl">🐾</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold">Mini Step Pet Supplies</h1>
-              <p className="text-xs text-white/80">Inventory</p>
-            </div>
-          </div>
-
-          <div className="hidden md:flex items-center gap-3">
-            <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
-              <Camera className="w-5 h-5" />
-            </button>
-            <button className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
-              <List className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleLogout}
-              className="w-11 h-11 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
-              title="Logout"
-            >
-              <User className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      
+      <AppHeader onLogout={handleLogout} />
 
       <div className="flex-1 overflow-hidden px-4 py-4">
         <div className="p-6 h-full bg-white rounded-[20px] shadow-sm overflow-hidden flex flex-col">
@@ -266,6 +198,7 @@ export default function InventoryPage() {
                     <th className="px-3 py-2 border">SKU</th>
                     <th className="px-3 py-2 border">Name</th>
                     <th className="px-3 py-2 border">Category</th>
+                    <th className="px-3 py-2 border text-right">Cost</th>
                     <th className="px-3 py-2 border text-right">Price</th>
                     <th className="px-3 py-2 border text-right">Stock</th>
                     <th className="px-3 py-2 border">Barcode</th>
@@ -278,23 +211,42 @@ export default function InventoryPage() {
                       <td className="px-3 py-2 border text-sm text-gray-700">{p.id}</td>
                       <td className="px-3 py-2 border text-sm text-gray-700">{p.name}</td>
                       <td className="px-3 py-2 border text-sm text-gray-600">{p.category}</td>
-                      <td className="px-3 py-2 border text-sm text-right text-[#1E8C5A]">
+                      <td className="px-3 py-2 border text-sm text-right text-gray-600">
+                        ₱{Number(p.cost ?? 0).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 border text-sm text-right text-[#1E8C5A] font-medium">
                         ₱{Number(p.price).toFixed(2)}
                       </td>
-                      <td className="px-3 py-2 border text-sm text-right">{p.stock}</td>
+                      <td className="px-3 py-2 border text-sm text-right">
+                        <StockCell stock={p.stock} />
+                      </td>
                       <td className="px-3 py-2 border text-sm text-gray-600">{p.barcode || '-'}</td>
                       <td className="px-3 py-2 border">
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" className="h-9 rounded-xl" onClick={() => openEdit(p)}>
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            className="h-9 rounded-xl"
-                            onClick={() => handleQuickDelete(p)}
+                          <button
+                            type="button"
+                            onClick={() => openEdit(p)}
+                            aria-label={`Edit ${p.name}`}
+                            className={cn(
+                              'flex min-h-10 min-w-10 items-center justify-center rounded-xl',
+                              'bg-[#E7F7EE] text-[#1E8C5A] border border-[#C8E8D4]',
+                              'hover:bg-[#D4F0E0] active:scale-95 transition touch-manipulation',
+                            )}
                           >
-                            Delete
-                          </Button>
+                            <Pencil className="h-4 w-4" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProductToDelete(p)}
+                            aria-label={`Delete ${p.name}`}
+                            className={cn(
+                              'flex min-h-10 min-w-10 items-center justify-center rounded-xl',
+                              'bg-red-50 text-red-600 border border-red-200',
+                              'hover:bg-red-100 active:scale-95 transition touch-manipulation',
+                            )}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -369,6 +321,41 @@ export default function InventoryPage() {
           setProductToEdit(null);
         }}
       />
+
+      <AlertDialog
+        open={productToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setProductToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border-[#E6ECE7] sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#1E3D2D]">Delete product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {productToDelete
+                ? `You are about to permanently delete "${productToDelete.name}" (SKU: ${productToDelete.id}). This action cannot be undone. Products linked to past transactions cannot be deleted.`
+                : 'This action cannot be undone.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="min-h-11 rounded-xl touch-manipulation"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting}
+              className="min-h-11 rounded-xl touch-manipulation"
+              onClick={() => void handleConfirmDelete()}
+            >
+              {isDeleting ? 'Deleting…' : 'Delete product'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
