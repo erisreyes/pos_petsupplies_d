@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { generateUuid } from '../lib/generateUuid';
 import type { CachedCategory, CachedProduct, MetaRecord, OutboxSale } from './types';
 
 export class PosOfflineDatabase extends Dexie {
@@ -39,7 +40,7 @@ export async function setMeta(key: string, value: string): Promise<void> {
 export async function getOrCreateDeviceId(): Promise<string> {
   const existing = await getMeta(META_KEYS.deviceId);
   if (existing) return existing;
-  const id = crypto.randomUUID();
+  const id = generateUuid();
   await setMeta(META_KEYS.deviceId, id);
   return id;
 }

@@ -7,6 +7,7 @@ import type {
   OutboxSalePayload,
   SaleHeaderPayload,
 } from '../offline/types';
+import { generateUuid } from '../lib/generateUuid';
 import { updateLocalProductStock } from '../offline/productRepository';
 
 export type CompleteSaleInput = {
@@ -185,7 +186,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CheckoutRe
   }
 
   if (!input.isOnline) {
-    const clientSaleId = crypto.randomUUID();
+    const clientSaleId = generateUuid();
     const shortId = clientSaleId.slice(0, 8).toUpperCase();
     const txnNumber = `OFFLINE-${shortId}`;
     return completeSaleOffline(input, clientSaleId, txnNumber);
