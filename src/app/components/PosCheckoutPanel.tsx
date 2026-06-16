@@ -1,3 +1,7 @@
+/**
+ * Multi-step checkout UI: choose payment → cash keypad or cashless confirm → receipt.
+ * Persists the sale via checkoutService.completeSale(); does not touch Supabase directly.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { CartItem, PaymentMethod } from '../types/pos';
 import { CheckCircle, ArrowLeft, Delete } from 'lucide-react';

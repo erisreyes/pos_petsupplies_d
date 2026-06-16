@@ -1,8 +1,15 @@
+/**
+ * Offline sale sync engine.
+ *
+ * Drains outbox_sales → Supabase transactions + transaction_items.
+ * Uses client_sale_id for idempotency so retries never create duplicate sales.
+ */
 import { supabase } from '../../lib/supabase';
 import { hydrateCatalogFromServer } from './productRepository';
 import { countFailedOutbox, countPendingOutbox, posDb } from './db';
 import type { OutboxSale } from './types';
 
+/** Prevents overlapping sync runs when heartbeat and reconnect fire together. */
 let syncInFlight: Promise<SyncResult> | null = null;
 
 export type SyncResult = {
@@ -31,6 +38,7 @@ function isStockError(err: unknown): boolean {
   return message.toLowerCase().includes('stock') || message.toLowerCase().includes('insufficient');
 }
 
+/** Push one outbox sale to Supabase; duplicate client_sale_id is treated as already synced. */
 async function pushSingleSale(sale: OutboxSale): Promise<'synced' | 'failed'> {
   const { header, lineItems } = sale.payload;
 

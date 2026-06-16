@@ -31,7 +31,7 @@ export function PosStaffBar({
             <span className="text-2xl">🐾</span>
           </div>
           <div>
-            <h1 className="text-lg font-semibold">Mini Step Pet Supplies</h1>
+            <h1 className="text-lg font-semibold">POS Demo</h1>
             <p className="text-xs text-white/80">Point of Sale</p>
           </div>
         </div>

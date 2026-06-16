@@ -1,3 +1,7 @@
+/**
+ * Staff login modal. Users sign in with username (looked up in profiles) + password.
+ * On success, Supabase Auth session is created and AuthContext receives cashierId + role.
+ */
 import { useState, type FormEvent } from 'react';
 import { Briefcase, X } from 'lucide-react';
 import { Button } from './ui/button';
@@ -32,8 +36,8 @@ const touchInputClass =
 const fieldLabelClass = 'text-base font-semibold text-[#2C3E2E]';
 
 export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: UserLoginProps) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState();
+  const [password, setPassword] = useState();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,7 +210,7 @@ export function UserLogin({ isOpen, onClose, onLogin, isRequired = false }: User
           <div className="shrink-0 border-t border-[#D4E8DA] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <Button
               type="submit"
-              disabled={isLoading || !username.trim() || !password}
+              disabled={isLoading || !username?.trim() || !password?.trim()}
               className="min-h-12 w-full rounded-2xl bg-[#1E8C5A] text-base font-semibold text-white hover:bg-[#166c44] touch-manipulation"
             >
               {isLoading ? 'Authenticating...' : 'Login'}

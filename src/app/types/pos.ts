@@ -1,3 +1,5 @@
+/** Core domain types shared across POS UI, services, and offline cache. */
+
 export interface Product {
   id: string;
   barcode: string;

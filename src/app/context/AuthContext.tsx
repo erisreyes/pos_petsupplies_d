@@ -1,3 +1,9 @@
+/**
+ * Authentication context — tracks the signed-in cashier and their role.
+ *
+ * Flow: Supabase Auth session → cashierId → profiles.role lookup.
+ * Components use useAuth() instead of calling supabase.auth directly.
+ */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { UserRole } from '../constants/roles';

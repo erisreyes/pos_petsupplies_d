@@ -1,3 +1,9 @@
+/**
+ * Connectivity context — online/offline detection and outbox sync orchestration.
+ *
+ * isOnline is true only when navigator.onLine AND a lightweight Supabase probe succeeds.
+ * When connectivity returns, pending offline sales are pushed via syncOutboxSales().
+ */
 import {
   createContext,
   useCallback,
@@ -12,6 +18,7 @@ import { supabase } from '../../lib/supabase';
 import { countFailedOutbox, countPendingOutbox } from '../offline/db';
 import { syncOutboxSales, type SyncResult } from '../offline/syncEngine';
 
+/** Re-check Supabase reachability while the tab is visible. */
 const HEARTBEAT_INTERVAL_MS = 45_000;
 
 type ConnectivityContextValue = {

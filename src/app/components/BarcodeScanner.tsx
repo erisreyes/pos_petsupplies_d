@@ -24,14 +24,13 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
     }
   }, [isOpen]);
 
-  // Simulate barcode scan after 2 seconds
+  // Dev-only demo scan — disabled in production builds
   useEffect(() => {
-    if (isOpen && isScanning && !manualEntry) {
-      const timer = setTimeout(() => {
-        simulateScan();
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
+    if (!import.meta.env.DEV || !isOpen || !isScanning || manualEntry) return;
+    const timer = setTimeout(() => {
+      simulateScan();
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [isOpen, isScanning, manualEntry]);
 
   const simulateScan = () => {

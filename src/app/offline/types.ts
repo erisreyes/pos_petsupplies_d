@@ -1,5 +1,7 @@
+/** Types for IndexedDB records and the offline sale outbox payload shape. */
 import type { CartItem, PaymentMethod, Product } from '../types/pos';
 
+/** Outbox row lifecycle: pending → syncing → synced (or failed on error) */
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export type CachedProduct = Product & {

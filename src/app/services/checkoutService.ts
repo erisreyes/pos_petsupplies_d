@@ -1,3 +1,9 @@
+/**
+ * Checkout business logic — single entry point for completing a sale.
+ *
+ * Online:  validate stock → insert transaction → decrement_stock RPC → update local cache
+ * Offline: validate local stock → write outbox → decrement local cache (sync later)
+ */
 import { supabase } from '../../lib/supabase';
 import type { CartItem, PaymentMethod } from '../types/pos';
 import { posDb } from '../offline/db';
@@ -78,6 +84,27 @@ async function validateLocalStock(items: CartItem[]): Promise<void> {
   }
 }
 
+async function validateServerStock(items: CartItem[]): Promise<void> {
+  for (const item of items) {
+    const { data, error } = await supabase
+      .from('products')
+      .select('stock, name')
+      .eq('id', item.product.id)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new Error(`Could not verify stock for ${item.product.name}.`);
+    }
+
+    if (data.stock < item.quantity) {
+      throw new Error(
+        `Insufficient stock for ${data.name}. Available: ${data.stock}, requested: ${item.quantity}.`,
+      );
+    }
+  }
+}
+
+/** Offline path: queue sale in outbox and decrement local stock atomically. */
 async function completeSaleOffline(
   input: CompleteSaleInput,
   clientSaleId: string,
@@ -120,7 +147,11 @@ async function completeSaleOffline(
   return { txnNumber, change, clientSaleId, offline: true };
 }
 
+/** Online path: write to Supabase immediately, then mirror stock in local cache. */
 async function completeSaleOnline(input: CompleteSaleInput): Promise<CheckoutReceipt> {
+  await validateLocalStock(input.items);
+  await validateServerStock(input.items);
+
   const txnNumber = `TXN-${Date.now()}`;
   const payload = buildSalePayload(input, txnNumber);
   const { header, lineItems } = payload;
@@ -156,14 +187,21 @@ async function completeSaleOnline(input: CompleteSaleInput): Promise<CheckoutRec
 
   const { error: itemsErr } = await supabase.from('transaction_items').insert(lineItemsWithTxn);
 
-  if (itemsErr) throw new Error(itemsErr.message || 'Unable to save transaction items.');
+  if (itemsErr) {
+    await supabase.from('transactions').delete().eq('id', txn.id);
+    throw new Error(itemsErr.message || 'Unable to save transaction items.');
+  }
 
   for (const item of input.items) {
     const { error: stockErr } = await supabase.rpc('decrement_stock', {
       p_product_id: item.product.id,
       p_quantity: item.quantity,
     });
-    if (stockErr) throw new Error(`Stock update failed: ${stockErr.message}`);
+    if (stockErr) {
+      await supabase.from('transaction_items').delete().eq('transaction_id', txn.id);
+      await supabase.from('transactions').delete().eq('id', txn.id);
+      throw new Error(`Stock update failed: ${stockErr.message}`);
+    }
   }
 
   for (const item of input.items) {

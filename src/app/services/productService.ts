@@ -396,7 +396,13 @@ export async function updateProduct(product: Partial<Product> & { id: string; ba
   if (product.cost !== undefined && product.cost !== null) updatePayload.cost = product.cost;
   if (product.stock !== undefined && product.stock !== null) updatePayload.stock = product.stock;
   if (product.minStockLevel !== undefined && product.minStockLevel !== null) updatePayload.min_stock_level = product.minStockLevel;
-  if (product.barcode !== undefined && product.barcode !== null) updatePayload.barcode = product.barcode;
+  if (product.barcode !== undefined && product.barcode !== null) {
+    const trimmed = product.barcode.trim();
+    const existingBarcode = (existingProduct.barcode ?? '').trim();
+    if (trimmed !== '' && trimmed !== existingBarcode) {
+      updatePayload.barcode = trimmed;
+    }
+  }
 
   console.debug('[updateProduct] Update payload:', updatePayload);
 

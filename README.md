@@ -451,7 +451,7 @@ For issues, feature requests, or questions:
 
 ## 📄 License
 
-**All Rights Reserved© 2026 Pawfect Pet Supplies**
+**All Rights Reserved© 2025 Pawfect Pet Supplies**
 
 This software is proprietary and confidential. Unauthorized copying, modification, or distribution is prohibited.
 
@@ -469,13 +469,26 @@ See [ATTRIBUTIONS.md](./ATTRIBUTIONS.md) for full credits.
 
 ---
 
+## 📚 Learning How the App Works
+
+New to the codebase? Read **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — a guided tour of:
+
+- App bootstrap and routing
+- Auth and role-based access
+- Offline-first catalog and sale outbox
+- Checkout flow (online vs offline)
+- Where to start when changing a feature
+
+---
+
 ## 🚀 Next Steps
 
 1. **Clone & Install**: Follow the "Local Development" section above
-2. **Configure Supabase**: Set up your database with schema from documentation
-3. **Test POS Flow**: Add products, scan barcodes, complete checkouts
-4. **Deploy**: Push to Vercel/Netlify and share PWA link with your team
-5. **Monitor**: Use Supabase dashboard to track real-time sales and sync status
+2. **Read the architecture guide**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+3. **Configure Supabase**: Set up your database with schema from documentation
+4. **Test POS Flow**: Add products, scan barcodes, complete checkouts
+5. **Deploy**: Push to Vercel/Netlify and share PWA link with your team
+6. **Monitor**: Use Supabase dashboard to track real-time sales and sync status
 
 ---
 

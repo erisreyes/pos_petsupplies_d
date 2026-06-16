@@ -1,3 +1,9 @@
+/**
+ * IndexedDB layer (Dexie) for offline catalog and sale outbox.
+ *
+ * This is the browser's local database — survives page reloads and works without network.
+ * Supabase remains the source of truth; IndexedDB is a cache + queue.
+ */
 import Dexie, { type Table } from 'dexie';
 import { generateUuid } from '../lib/generateUuid';
 import type { CachedCategory, CachedProduct, MetaRecord, OutboxSale } from './types';

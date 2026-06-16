@@ -1,3 +1,11 @@
+/**
+ * Main POS screen — orchestrates catalog, cart, checkout, and modals.
+ *
+ * State lives here (cart, products, modals). Business rules delegate to:
+ * - checkoutService.completeSale() for payments
+ * - productRepository.loadProductsForPos() for catalog
+ * - AuthContext / ConnectivityContext for session and network
+ */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Product, CartItem, Transaction, PaymentMethod } from '../types/pos';
 import { quickAddItems } from '../data/pet-products';
@@ -173,12 +181,19 @@ export default function PosPage() {
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const nextQty = existing ? existing.quantity + 1 : 1;
+      if (product.stock < nextQty) {
+        toast.error('Insufficient stock', {
+          description: `${product.name} has ${product.stock} available.`,
+        });
+        return prev;
+      }
       if (existing) {
         toast.success(`Added another ${product.name} to cart`, {
-          description: `Quantity: ${existing.quantity + 1}`,
+          description: `Quantity: ${nextQty}`,
         });
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
+          item.product.id === product.id ? { ...item, quantity: nextQty } : item,
         );
       }
       toast.success(`${product.name} added to cart`, { icon: '🐾' });
@@ -206,6 +221,8 @@ export default function PosPage() {
     } catch (error) {
       console.error('Scan error:', error);
       toast.error('Error scanning product');
+    } finally {
+      setIsScannerOpen(false);
     }
   };
 

@@ -1,3 +1,8 @@
+/**
+ * Shared Supabase client — single instance for auth, queries, and RPC calls.
+ * Credentials come from VITE_* env vars (see .env.local).
+ * Import this module; do not create additional clients elsewhere.
+ */
 import { createClient } from '@supabase/supabase-js';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;

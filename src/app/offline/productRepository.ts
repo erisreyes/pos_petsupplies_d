@@ -1,3 +1,9 @@
+/**
+ * Product catalog cache — bridges Supabase and IndexedDB.
+ *
+ * hydrateCatalogFromServer() replaces the local cache when online.
+ * loadProductsForPos() is what PosPage calls on every load.
+ */
 import type { Product } from '../types/pos';
 import { fetchCategories, fetchProducts } from '../services/productService';
 import { applyProductOrder, loadProductOrder } from '../lib/productOrder';

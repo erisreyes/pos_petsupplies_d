@@ -8,7 +8,10 @@ type StaffRestrictedRouteProps = {
   children: React.ReactNode;
 };
 
-/** Blocks staff from non-POS routes; redirects to `/`. */
+/**
+ * Route guard for admin/manager-only pages.
+ * Staff (cashiers) are redirected to `/` with a toast — they only use the POS screen.
+ */
 export function StaffRestrictedRoute({ children }: StaffRestrictedRouteProps) {
   const { userRole, authLoading } = useAuth();
   const deniedToastShown = useRef(false);
