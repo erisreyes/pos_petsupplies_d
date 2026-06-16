@@ -1,4 +1,4 @@
-# 🐾 Pawfect Pet Supplies - Mobile POS System
+# 🐾 Pet Supplies POS System
 
 ![React](https://img.shields.io/badge/React-18.x-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)
